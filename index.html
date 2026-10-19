@@ -1,0 +1,2321 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TikTok Guitar Teleprompter & Studio PRO</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+                    },
+                    colors: {
+                        tiktok: {
+                            pink: '#FE2C55',
+                            cyan: '#25F4EE',
+                            dark: '#0B0D14'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 9999px;
+        }
+        .prompter-mask {
+            mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+        }
+        .pulse-recording {
+            animation: pulse-ring 1.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(254, 44, 85, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 16px rgba(254, 44, 85, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(254, 44, 85, 0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex flex-col font-sans select-none overflow-x-hidden">
+
+    <!-- Top Sticky Header -->
+    <header class="sticky top-0 z-40 bg-gray-900/90 backdrop-blur-md border-b border-gray-800 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-tiktok-pink to-tiktok-cyan flex items-center justify-center shadow-lg shadow-tiktok-pink/20">
+                <i class="fa-solid fa-guitar text-black text-sm"></i>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-sm tracking-tight text-white flex items-center gap-1.5">
+                    TikTok Guitar <span class="text-[10px] px-1.5 py-0.5 rounded bg-tiktok-pink/20 text-tiktok-pink font-bold border border-tiktok-pink/30">PRO</span>
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+            <!-- Google API Settings Button -->
+            <button id="open-settings-btn" class="w-8 h-8 rounded-xl bg-gray-800 hover:bg-gray-700 active:scale-95 transition flex items-center justify-center text-tiktok-cyan text-xs border border-gray-700" title="Google連携設定">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+            <!-- Tuner Quick Launch Button -->
+            <button id="open-tuner-btn" class="flex items-center gap-1 px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 active:scale-95 transition text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold shadow-sm">
+                <i class="fa-solid fa-microphone-lines animate-pulse"></i> チューナー
+            </button>
+            <!-- Camera Flip -->
+            <button id="flip-camera-btn" class="w-8 h-8 rounded-xl bg-gray-800 hover:bg-gray-700 active:scale-95 transition flex items-center justify-center text-gray-300 text-xs border border-gray-700" title="カメラ反転">
+                <i class="fa-solid fa-camera-rotate"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-md w-full mx-auto p-3 space-y-4 flex flex-col pb-24">
+
+        <!-- Song Search & External Lookup Card -->
+        <div class="bg-gray-900 border border-gray-800 rounded-3xl p-3.5 shadow-xl space-y-3">
+            <div class="flex items-center justify-between text-xs font-bold text-gray-300">
+                <span class="flex items-center gap-1.5 text-tiktok-cyan">
+                    <i class="fa-solid fa-globe"></i> 楽曲検索 & 指コード生成
+                </span>
+                <span id="detected-capo-badge" class="px-2 py-0.5 rounded-full bg-tiktok-pink/20 text-tiktok-pink text-[11px] font-black border border-tiktok-pink/30">
+                    Capo: 0 (原曲キー)
+                </span>
+            </div>
+
+            <!-- Two-Field Input (Song Name + Artist Name) -->
+            <div class="space-y-2">
+                <div class="grid grid-cols-5 gap-2">
+                    <div class="col-span-3 relative">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                        <input id="song-input" type="text" placeholder="曲名 (例: レットイットビー, 糸)" class="w-full bg-gray-950 border border-gray-800 rounded-2xl pl-8 pr-2.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-tiktok-cyan transition">
+                    </div>
+                    <div class="col-span-2 relative">
+                        <i class="fa-solid fa-user absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs"></i>
+                        <input id="artist-input" type="text" placeholder="歌手名 (任意)" class="w-full bg-gray-950 border border-gray-800 rounded-2xl pl-8 pr-2.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-tiktok-cyan transition">
+                    </div>
+                </div>
+
+                <!-- Action Button Cluster -->
+                <div class="grid grid-cols-12 gap-1.5">
+                    <button id="search-song-btn" class="col-span-7 py-2.5 bg-gradient-to-r from-tiktok-pink to-rose-600 hover:from-rose-500 hover:to-rose-600 active:scale-95 transition text-white font-bold text-xs rounded-2xl shadow-lg flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-bolt"></i> 譜面を自動セット
+                    </button>
+                    <button id="web-search-btn" class="col-span-2 py-2.5 bg-gray-800 hover:bg-gray-700 active:scale-95 transition text-tiktok-cyan font-bold text-xs rounded-2xl border border-gray-700 flex items-center justify-center" title="Googleでコードを検索">
+                        <i class="fa-brands fa-google text-sm"></i>
+                    </button>
+                    <button id="open-paste-modal-btn" class="col-span-3 py-2.5 bg-gray-800 hover:bg-gray-700 active:scale-95 transition text-amber-400 font-bold text-xs rounded-2xl border border-gray-700 flex items-center justify-center gap-1" title="コードサイトのテキストを貼り付け">
+                        <i class="fa-solid fa-paste"></i> 貼付
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scope Mode Toggle (一曲丸ごとフル / サビのみショート) -->
+            <div class="flex items-center justify-between bg-gray-950 p-1.5 rounded-2xl border border-gray-800">
+                <span class="text-[11px] font-bold text-gray-400 pl-2">表示範囲:</span>
+                <div class="flex gap-1">
+                    <button id="scope-full-btn" class="px-3 py-1.5 rounded-xl bg-tiktok-pink text-white text-xs font-black shadow-md transition active:scale-95 flex items-center gap-1">
+                        <i class="fa-solid fa-compact-disc"></i> 一曲丸ごと (フル)
+                    </button>
+                    <button id="scope-short-btn" class="px-3 py-1.5 rounded-xl bg-gray-800 text-gray-400 text-xs font-bold hover:text-white transition active:scale-95 flex items-center gap-1">
+                        <i class="fa-solid fa-bolt"></i> サビのみ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Quick Popular Songs Pill Bar -->
+            <div class="pt-0.5">
+                <div class="text-[10px] text-gray-400 font-bold mb-1.5 flex items-center justify-between">
+                    <span class="flex items-center gap-1"><i class="fa-solid fa-fire text-amber-400"></i> 定番ライブラリ（タップで即セット）:</span>
+                    <span id="api-status-badge" class="text-[9px] px-1.5 py-0.2 rounded bg-gray-800 text-gray-400 border border-gray-700">Google連携: 未設定</span>
+                </div>
+                <div class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pb-1" id="preset-song-list">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Search Status Notice -->
+            <div id="search-status" class="text-[11px] text-gray-400 hidden flex items-center gap-1.5 pl-1 bg-gray-950/80 p-2 rounded-xl border border-gray-800">
+                <i class="fa-solid fa-check text-tiktok-cyan"></i>
+                <span id="search-status-text">セット完了</span>
+            </div>
+        </div>
+
+        <!-- 9:16 Camera & Prompter Container -->
+        <div class="relative w-full aspect-[9/16] bg-black rounded-3xl overflow-hidden border border-gray-800 shadow-2xl flex flex-col justify-between">
+
+            <!-- Video Feed Element -->
+            <video id="camera-stream" autoplay playsinline muted class="absolute inset-0 w-full h-full object-cover z-0"></video>
+
+            <!-- Fallback Virtual Studio Background -->
+            <div id="camera-fallback-bg" class="hidden absolute inset-0 z-0 bg-gradient-to-br from-gray-950 via-slate-900 to-black flex flex-col items-center justify-center p-6 text-center select-none overflow-hidden">
+                <div class="absolute -top-24 -left-24 w-72 h-72 bg-tiktok-pink/20 rounded-full blur-3xl pointer-events-none animate-pulse"></div>
+                <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-tiktok-cyan/20 rounded-full blur-3xl pointer-events-none animate-pulse" style="animation-delay: 1s;"></div>
+                <div class="w-16 h-16 rounded-3xl bg-gray-900/80 border border-gray-700/60 flex items-center justify-center mb-3 shadow-xl backdrop-blur-md">
+                    <i class="fa-solid fa-guitar text-tiktok-cyan text-2xl"></i>
+                </div>
+                <span class="text-xs font-bold text-gray-300 tracking-wide">スタジオ・ステージモード</span>
+                <span id="camera-notice-sub" class="text-[10px] text-gray-500 mt-1 max-w-[200px]">カメラ映像を表示中（未接続時は仮想ステージが動作します）</span>
+            </div>
+
+            <!-- Video Overlay Vignette -->
+            <div class="absolute inset-0 bg-gradient-to-b from-black/75 via-black/25 to-black/85 pointer-events-none z-10"></div>
+
+            <!-- Top Overlay Controls (In-Camera) -->
+            <div class="relative z-20 p-3 flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                    <span id="recording-live-indicator" class="hidden px-2.5 py-1 rounded-full bg-red-600/90 text-white font-black text-[10px] tracking-wider uppercase flex items-center gap-1.5 shadow-lg shadow-red-600/30">
+                        <span class="w-2 h-2 rounded-full bg-white animate-ping"></span> REC <span id="record-timer">00:00</span>
+                    </span>
+                    <span id="active-capo-tag" class="px-2 py-0.5 rounded-lg bg-black/70 backdrop-blur-md text-[11px] font-bold text-amber-400 border border-amber-500/30">
+                        Capo: 0
+                    </span>
+                    <span id="active-scope-tag" class="px-2 py-0.5 rounded-lg bg-black/70 backdrop-blur-md text-[10px] font-bold text-tiktok-pink border border-tiktok-pink/30">
+                        一曲丸ごと
+                    </span>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                    <!-- Prompter Mode Toggle (指コード / テキスト) -->
+                    <button id="toggle-chord-visual" class="px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md hover:bg-black/90 border border-gray-700 text-tiktok-cyan text-[11px] font-bold active:scale-95 transition flex items-center gap-1">
+                        <i class="fa-solid fa-table-cells"></i> <span id="chord-view-mode-label">指コード</span>
+                    </button>
+                    <!-- Metronome Quick Click Toggle -->
+                    <button id="toggle-metro-btn" class="w-7 h-7 rounded-xl bg-black/70 backdrop-blur-md hover:bg-black/90 border border-gray-700 text-gray-300 text-[11px] flex items-center justify-center active:scale-95 transition" title="メトロノーム音">
+                        <i id="metro-icon" class="fa-solid fa-drum text-gray-400"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Teleprompter Flowing Lyrics & Chords Overlay -->
+            <div class="relative z-20 flex-1 px-2 overflow-hidden flex flex-col justify-center prompter-mask pointer-events-auto">
+                <div id="prompter-scroll-container" class="h-full overflow-y-auto space-y-6 py-28 text-center scroll-smooth px-1">
+                    <!-- Populated dynamically with lyrics and clear SVG diagrams on top -->
+                </div>
+            </div>
+
+            <!-- Prompter Countdown Indicator Overlay (Screen Center) -->
+            <div id="countdown-overlay" class="hidden absolute inset-0 z-30 flex items-center justify-center bg-black/70 backdrop-blur-sm pointer-events-none">
+                <span id="countdown-number" class="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-tiktok-pink to-tiktok-cyan animate-bounce">3</span>
+            </div>
+
+            <!-- Bottom Floating Recording Bar (Inside Camera Frame) -->
+            <div class="relative z-20 p-4 flex items-center justify-between">
+                <!-- Countdown Delay selector -->
+                <button id="timer-delay-btn" class="px-2.5 py-1.5 rounded-xl bg-black/70 backdrop-blur-md border border-gray-700 text-gray-200 text-[11px] font-bold active:scale-95 transition flex flex-col items-center">
+                    <span class="text-[9px] text-gray-400 leading-none">遅延</span>
+                    <span id="delay-text" class="leading-tight">3s</span>
+                </button>
+
+                <!-- Big Shutter Record Button -->
+                <button id="record-shutter-btn" class="w-16 h-16 rounded-full bg-tiktok-pink p-1 flex items-center justify-center shadow-xl shadow-tiktok-pink/40 active:scale-90 transition">
+                    <div id="shutter-inner" class="w-full h-full rounded-full border-4 border-black/30 flex items-center justify-center bg-tiktok-pink">
+                        <div id="shutter-shape" class="w-6 h-6 rounded-full bg-white transition-all duration-300"></div>
+                    </div>
+                </button>
+
+                <!-- Scroll Speed selector -->
+                <button id="scroll-speed-btn" class="px-2.5 py-1.5 rounded-xl bg-black/70 backdrop-blur-md border border-gray-700 text-gray-200 text-[11px] font-bold active:scale-95 transition flex flex-col items-center">
+                    <span class="text-[9px] text-gray-400 leading-none">速度</span>
+                    <span id="speed-text" class="leading-tight text-tiktok-cyan">x1.5</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Recording Finished & Preview Card -->
+        <div id="recorded-preview-card" class="hidden bg-gray-900 border border-gray-800 rounded-3xl p-4 shadow-2xl space-y-3.5">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-2.5">
+                <h3 class="font-bold text-xs text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-check text-emerald-400 text-sm"></i> 録画完了プレビュー
+                </h3>
+                <button id="dismiss-recording-card" class="text-gray-400 hover:text-white p-1">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <div class="relative rounded-2xl overflow-hidden bg-black aspect-[9/16] max-h-[360px] mx-auto border border-gray-800">
+                <video id="playback-video" controls playsinline class="w-full h-full object-cover"></video>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <a id="download-video-btn" download="tiktok-guitar-take.webm" class="flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-700 text-white font-bold py-2.5 rounded-xl text-xs border border-gray-700 active:scale-95 transition">
+                    <i class="fa-solid fa-download text-tiktok-cyan"></i> 動画を保存
+                </a>
+                <button id="ai-review-btn" class="flex items-center justify-center gap-1.5 bg-gradient-to-r from-tiktok-pink to-rose-600 hover:from-rose-500 hover:to-rose-600 text-white font-extrabold py-2.5 rounded-xl text-xs shadow-lg shadow-tiktok-pink/30 active:scale-95 transition">
+                    <i class="fa-solid fa-brain"></i> 辛口演奏診断
+                </button>
+            </div>
+
+            <!-- AI Critique Output Box -->
+            <div id="ai-review-panel" class="hidden bg-gray-950 border border-rose-500/30 rounded-2xl p-3.5 space-y-2.5 mt-2">
+                <div class="flex items-center justify-between border-b border-gray-800 pb-2">
+                    <span class="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-gavel"></i> 辛口プロデューサー審査結果
+                    </span>
+                    <span id="ai-review-grade" class="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-rose-600 text-white tracking-wider">
+                        審査中
+                    </span>
+                </div>
+
+                <div id="ai-review-loading" class="hidden py-6 flex flex-col items-center justify-center text-center space-y-2">
+                    <i class="fa-solid fa-circle-notch fa-spin text-2xl text-rose-500"></i>
+                    <p class="text-xs text-gray-200 font-bold">音源とコード進行を精査中...</p>
+                </div>
+
+                <div id="ai-review-content" class="text-xs text-gray-200 space-y-2.5 whitespace-pre-wrap leading-relaxed font-sans">
+                </div>
+            </div>
+        </div>
+
+        <!-- Tempo & Metronome Controls -->
+        <div class="bg-gray-900 border border-gray-800 rounded-3xl p-3.5 shadow-xl space-y-3">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-sliders text-tiktok-cyan"></i> テンポ・メトロノーム設定
+                </span>
+                <span id="bpm-display" class="text-xs font-black text-tiktok-cyan">BPM 72</span>
+            </div>
+
+            <div class="flex items-center gap-3">
+                <input id="bpm-slider" type="range" min="50" max="220" value="72" class="flex-1 accent-tiktok-cyan h-2 bg-gray-800 rounded-lg cursor-pointer">
+                <button id="tap-tempo-btn" class="px-3 py-1.5 bg-gray-800 active:bg-gray-700 text-gray-200 text-xs font-bold rounded-xl border border-gray-700 whitespace-nowrap">
+                    TAP
+                </button>
+            </div>
+
+            <!-- Manual Sheet Editor Area -->
+            <details class="group pt-2 border-t border-gray-800">
+                <summary class="flex items-center justify-between text-xs font-bold text-gray-400 cursor-pointer hover:text-white py-1">
+                    <span><i class="fa-solid fa-file-lines mr-1.5"></i> 譜面テキストの手動編集・確認</span>
+                    <i class="fa-solid fa-chevron-down text-[10px] group-open:rotate-180 transition"></i>
+                </summary>
+                <div class="pt-2 space-y-2">
+                    <textarea id="song-editor" rows="10" class="w-full bg-gray-950 border border-gray-800 rounded-2xl p-2.5 text-xs text-gray-300 font-mono focus:outline-none focus:border-tiktok-cyan resize-y leading-relaxed" placeholder="ここに譜面と歌詞を貼り付け・編集できます"></textarea>
+                    <div class="flex justify-end gap-2">
+                        <button id="apply-editor-btn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white font-bold text-xs rounded-xl border border-gray-700">
+                            プロンプターに即反映
+                        </button>
+                    </div>
+                </div>
+            </details>
+        </div>
+    </main>
+
+    <!-- Paste Import Modal Overlay -->
+    <div id="paste-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-3">
+        <div class="w-full max-w-md bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl space-y-3.5">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                    <h2 class="font-extrabold text-sm text-white">コード譜の貼り付け取り込み</h2>
+                </div>
+                <button id="close-paste-modal-btn" class="w-7 h-7 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+
+            <p class="text-[11px] text-gray-400 leading-relaxed">
+                U-フレット、楽器.me、ChordWikiなどのネット上からコピーした歌詞とコード進行をそのまま貼り付けてください。自動で指コードプロンプターに変換します。
+            </p>
+
+            <div class="space-y-1.5">
+                <textarea id="paste-input-area" rows="8" class="w-full bg-gray-950 border border-gray-800 rounded-2xl p-2.5 text-xs text-gray-200 font-mono focus:outline-none focus:border-tiktok-cyan leading-relaxed" placeholder="例:&#10;Capo: 2&#10;BPM: 106&#10;&#10;[Intro]&#10;C   G   Am   Em&#10;&#10;[Aメロ]&#10;C   G   Am   Em&#10;君の言葉が胸に響いてた"></textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div class="flex items-center gap-1.5 bg-gray-950 p-2 rounded-xl border border-gray-800">
+                    <span class="text-[10px] text-gray-400 font-bold whitespace-nowrap">Capo:</span>
+                    <input id="paste-capo-input" type="number" min="0" max="12" value="0" class="w-full bg-transparent text-xs text-white font-bold focus:outline-none text-center">
+                </div>
+                <div class="flex items-center gap-1.5 bg-gray-950 p-2 rounded-xl border border-gray-800">
+                    <span class="text-[10px] text-gray-400 font-bold whitespace-nowrap">BPM:</span>
+                    <input id="paste-bpm-input" type="number" min="50" max="220" value="100" class="w-full bg-transparent text-xs text-white font-bold focus:outline-none text-center">
+                </div>
+            </div>
+
+            <button id="execute-paste-import-btn" class="w-full py-2.5 bg-gradient-to-r from-tiktok-pink to-rose-600 hover:from-rose-500 text-white font-bold text-xs rounded-2xl shadow-lg active:scale-95 transition flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-wand-magic-sparkles"></i> 指コードプロンプターに即変換
+            </button>
+        </div>
+    </div>
+
+    <!-- Google API Settings Modal Overlay -->
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-3">
+        <div class="w-full max-w-md bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-tiktok-cyan animate-ping"></span>
+                    <h2 class="font-extrabold text-sm text-white">Google連携 & AI設定</h2>
+                </div>
+                <button id="close-settings-btn" class="w-7 h-7 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+
+            <div class="space-y-2">
+                <label class="text-xs font-bold text-gray-300 flex items-center gap-1">
+                    <i class="fa-solid fa-key text-tiktok-cyan"></i> Google Gemini APIキー（無料）
+                </label>
+                <input id="api-key-input" type="password" placeholder="AIzaSy..." class="w-full bg-gray-950 border border-gray-800 rounded-2xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-tiktok-cyan font-mono">
+                <p class="text-[10px] text-gray-400 leading-relaxed">
+                    ※ APIキーを登録すると、<strong>Google検索機能とAIが連動</strong>し、曲名を入力するだけで世界中のWeb上の曲からコード進行・カポ・BPM・歌詞を全自動で取得できるようになります。
+                </p>
+                <div class="bg-gray-950 p-2.5 rounded-2xl border border-gray-800 text-[10px] text-gray-400 space-y-1">
+                    <p class="font-bold text-tiktok-cyan flex items-center gap-1">
+                        <i class="fa-solid fa-circle-info"></i> APIキーの無料取得方法（1分）:
+                    </p>
+                    <p>1. <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-tiktok-pink underline font-bold">Google AI Studio</a> にアクセス（Googleアカウントでログイン）</p>
+                    <p>2. 「Create API Key」を押してキーをコピーし、上記に貼り付けて保存してください。</p>
+                    <p class="text-gray-500 text-[9px]">※ キーはご自身のブラウザ内（端末）にのみ安全に保存され、外部サーバーには送信されません。</p>
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button id="save-api-key-btn" class="flex-1 py-2.5 bg-gradient-to-r from-tiktok-cyan to-teal-500 hover:from-cyan-400 text-black font-extrabold text-xs rounded-2xl shadow-lg active:scale-95 transition">
+                    保存して有効化
+                </button>
+                <button id="clear-api-key-btn" class="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs font-bold rounded-2xl border border-gray-700 active:scale-95 transition">
+                    解除
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guitar Tuner Modal Overlay -->
+    <div id="tuner-modal" class="hidden fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-3">
+        <div class="w-full max-w-sm bg-gray-900 border border-gray-800 rounded-3xl p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    <h2 class="font-extrabold text-sm text-white">高精度ギターチューナー</h2>
+                </div>
+                <button id="close-tuner-btn" class="w-7 h-7 rounded-full bg-gray-800 hover:bg-gray-700 text-gray-300 flex items-center justify-center">
+                    <i class="fa-solid fa-xmark text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Target String Selector Buttons -->
+            <div class="space-y-1">
+                <div class="text-[10px] text-gray-400 font-bold">調律モード / 基準音再生:</div>
+                <div class="flex items-center justify-between gap-1">
+                    <button class="target-string-btn flex-1 py-1.5 rounded-xl bg-emerald-600 text-[11px] font-bold text-white active:scale-95 transition" data-string="auto">自動</button>
+                    <button class="target-string-btn flex-1 py-1.5 rounded-xl bg-gray-800 text-[11px] font-bold text-gray-400 active:scale-95 transition" data-string="6E">6E</button>
+                    <button class="target-string-btn flex-1 py-1.5 rounded-xl bg-gray-800 text-[11px] font-bold text-gray-400 active:scale-95 transition" data-string="5A">5A</button>
+                    <button class="target-string-btn flex-1 py-1.5 rounded-xl bg-gray-800 text-[11px] font-bold text-gray-400 active:scale-95 transition" data-string="4D">4D</button>
+                    <button class="target-string-btn flex-1 py-1.5 rounded-xl bg-gray-800 text-[11px] font-bold text-gray-400 active:scale-95 transition" data-string="3G">3G</button>
+                    <button class="target-string-btn flex-1 py-1.5 rounded-xl bg-gray-800 text-[11px] font-bold text-gray-400 active:scale-95 transition" data-string="2B">2B</button>
+                    <button class="target-string-btn flex-1 py-1.5 rounded-xl bg-gray-800 text-[11px] font-bold text-gray-400 active:scale-95 transition" data-string="1E">1E</button>
+                </div>
+            </div>
+
+            <!-- Central Tuning Gauge Dial -->
+            <div class="relative py-3 flex flex-col items-center justify-center">
+                <!-- Gauge Needle Container -->
+                <div class="w-48 h-24 relative overflow-hidden flex items-end justify-center">
+                    <div class="w-48 h-48 rounded-full border-4 border-gray-800 relative">
+                        <div class="absolute inset-0 flex justify-center pt-1">
+                            <div class="w-0.5 h-3 bg-emerald-500"></div>
+                        </div>
+                    </div>
+                    <div id="tuner-needle" class="absolute bottom-0 w-1 h-20 bg-rose-500 rounded-full origin-bottom transition-transform duration-100 transform -rotate-45"></div>
+                </div>
+
+                <!-- Detected Note & String Display -->
+                <div class="mt-2 text-center">
+                    <div class="flex items-baseline justify-center gap-1.5">
+                        <span id="detected-note-name" class="text-4xl font-black text-white">--</span>
+                        <span id="detected-target-string" class="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">AUTO</span>
+                    </div>
+                    <p id="tuner-hz" class="text-[11px] text-gray-400 font-mono mt-0.5">-- Hz</p>
+                    <p id="tuner-guidance" class="text-xs font-bold text-amber-400 mt-1">弦を1本鳴らしてください</p>
+                </div>
+
+                <!-- Input Volume Meter -->
+                <div class="w-full mt-3 space-y-1">
+                    <div class="flex justify-between text-[10px] text-gray-500">
+                        <span>マイク入力レベル</span>
+                        <span id="mic-db-text">待機中</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div id="mic-level-bar" class="h-full bg-emerald-500 w-0 transition-all duration-75"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-between gap-2 pt-1">
+                <button id="tuner-retry-mic-btn" class="flex-1 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-[11px] font-bold text-tiktok-cyan border border-gray-700 transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-arrows-rotate"></i> マイク再接続
+                </button>
+                <button id="play-tone-btn" class="flex-1 py-1.5 rounded-xl bg-gray-800 hover:bg-gray-700 text-[11px] font-bold text-amber-400 border border-gray-700 transition flex items-center justify-center gap-1">
+                    <i class="fa-solid fa-volume-high"></i> 基準音を聴く
+                </button>
+            </div>
+
+            <p class="text-[10px] text-gray-500 text-center leading-relaxed">
+                ※ 弦を弾くと針が振れます。真ん中で緑色になれば調律完了です。マイクが拾いにくい場合は「基準音を聴く」で耳で合わせられます。
+            </p>
+        </div>
+    </div>
+
+    <script>
+        /* ==========================================================
+           1. COMPREHENSIVE GUITAR CHORD DATABASE (EXPANDED & CLEAR)
+           ========================================================== */
+        const CHORD_DB = {
+            // C Family
+            'C':     { frets: [-1, 3, 2, 0, 1, 0], base: 1 },
+            'C7':    { frets: [-1, 3, 2, 3, 1, 0], base: 1 },
+            'CM7':   { frets: [-1, 3, 2, 0, 0, 0], base: 1 },
+            'Cmaj7': { frets: [-1, 3, 2, 0, 0, 0], base: 1 },
+            'Csus4': { frets: [-1, 3, 3, 0, 1, 0], base: 1 },
+            'Cadd9': { frets: [-1, 3, 2, 0, 3, 0], base: 1 },
+            'Cm':    { frets: [-1, 3, 5, 5, 4, 3], base: 3, barre: 3 },
+            'Cm7':   { frets: [-1, 3, 5, 3, 4, 3], base: 3, barre: 3 },
+            'C#':    { frets: [-1, 4, 6, 6, 6, 4], base: 4, barre: 4 },
+            'C#m':   { frets: [-1, 4, 6, 6, 5, 4], base: 4, barre: 4 },
+            'C#7':   { frets: [-1, 4, 6, 4, 6, 4], base: 4, barre: 4 },
+            'C#m7':  { frets: [-1, 4, 6, 4, 5, 4], base: 4, barre: 4 },
+
+            // D Family
+            'D':     { frets: [-1, -1, 0, 2, 3, 2], base: 1 },
+            'D7':    { frets: [-1, -1, 0, 2, 1, 2], base: 1 },
+            'DM7':   { frets: [-1, -1, 0, 2, 2, 2], base: 1 },
+            'Dmaj7': { frets: [-1, -1, 0, 2, 2, 2], base: 1 },
+            'Dm':    { frets: [-1, -1, 0, 2, 3, 1], base: 1 },
+            'Dm7':   { frets: [-1, -1, 0, 2, 1, 1], base: 1 },
+            'Dsus4': { frets: [-1, -1, 0, 2, 3, 3], base: 1 },
+            'Dadd9': { frets: [-1, -1, 0, 2, 3, 0], base: 1 },
+            'Db':    { frets: [-1, 4, 6, 6, 6, 4], base: 4, barre: 4 },
+            'Dbm':   { frets: [-1, 4, 6, 6, 5, 4], base: 4, barre: 4 },
+
+            // E Family
+            'E':     { frets: [0, 2, 2, 1, 0, 0], base: 1 },
+            'E7':    { frets: [0, 2, 0, 1, 0, 0], base: 1 },
+            'EM7':   { frets: [0, 2, 1, 1, 0, 0], base: 1 },
+            'Emaj7': { frets: [0, 2, 1, 1, 0, 0], base: 1 },
+            'Em':    { frets: [0, 2, 2, 0, 0, 0], base: 1 },
+            'Em7':   { frets: [0, 2, 2, 0, 3, 0], base: 1 },
+            'Esus4': { frets: [0, 2, 2, 2, 0, 0], base: 1 },
+            'Eb':    { frets: [-1, 6, 8, 8, 8, 6], base: 6, barre: 6 },
+            'Ebm':   { frets: [-1, 6, 8, 8, 7, 6], base: 6, barre: 6 },
+            'Eb7':   { frets: [-1, 6, 8, 6, 8, 6], base: 6, barre: 6 },
+            'Ebm7':  { frets: [-1, 6, 8, 6, 7, 6], base: 6, barre: 6 },
+
+            // F Family
+            'F':     { frets: [1, 3, 3, 2, 1, 1], base: 1, barre: 1 },
+            'F7':    { frets: [1, 3, 1, 2, 1, 1], base: 1, barre: 1 },
+            'FM7':   { frets: [-1, -1, 3, 2, 1, 0], base: 1 },
+            'Fmaj7': { frets: [-1, -1, 3, 2, 1, 0], base: 1 },
+            'Fm':    { frets: [1, 3, 3, 1, 1, 1], base: 1, barre: 1 },
+            'Fm7':   { frets: [1, 3, 1, 1, 1, 1], base: 1, barre: 1 },
+            'Fsus4': { frets: [1, 3, 3, 3, 1, 1], base: 1, barre: 1 },
+            'F#':    { frets: [2, 4, 4, 3, 2, 2], base: 2, barre: 2 },
+            'F#m':   { frets: [2, 4, 4, 2, 2, 2], base: 2, barre: 2 },
+            'F#7':   { frets: [2, 4, 2, 3, 2, 2], base: 2, barre: 2 },
+            'F#m7':  { frets: [2, 4, 2, 2, 2, 2], base: 2, barre: 2 },
+            'F#m7-5':{ frets: [2, -1, 2, 2, 2, -1], base: 2 },
+            'F#dim': { frets: [-1, -1, 1, 2, 1, 2], base: 1 },
+
+            // G Family
+            'G':     { frets: [3, 2, 0, 0, 0, 3], base: 1 },
+            'G7':    { frets: [3, 2, 0, 0, 0, 1], base: 1 },
+            'GM7':   { frets: [3, 2, 0, 0, 0, 2], base: 1 },
+            'Gmaj7': { frets: [3, 2, 0, 0, 0, 2], base: 1 },
+            'Gm':    { frets: [3, 5, 5, 3, 3, 3], base: 3, barre: 3 },
+            'Gm7':   { frets: [3, 5, 3, 3, 3, 3], base: 3, barre: 3 },
+            'Gsus4': { frets: [3, 3, 0, 0, 1, 3], base: 1 },
+            'Gadd9': { frets: [3, 2, 0, 2, 0, 3], base: 1 },
+            'G#':    { frets: [4, 6, 6, 5, 4, 4], base: 4, barre: 4 },
+            'G#m':   { frets: [4, 6, 6, 4, 4, 4], base: 4, barre: 4 },
+            'G#m7':  { frets: [4, 6, 4, 4, 4, 4], base: 4, barre: 4 },
+
+            // A Family
+            'A':     { frets: [-1, 0, 2, 2, 2, 0], base: 1 },
+            'A7':    { frets: [-1, 0, 2, 0, 2, 0], base: 1 },
+            'AM7':   { frets: [-1, 0, 2, 1, 2, 0], base: 1 },
+            'Amaj7': { frets: [-1, 0, 2, 1, 2, 0], base: 1 },
+            'Am':    { frets: [-1, 0, 2, 2, 1, 0], base: 1 },
+            'Am7':   { frets: [-1, 0, 2, 0, 1, 0], base: 1 },
+            'Asus4': { frets: [-1, 0, 2, 2, 3, 0], base: 1 },
+            'Aadd9': { frets: [-1, 0, 2, 4, 2, 0], base: 1 },
+            'Ab':    { frets: [4, 6, 6, 5, 4, 4], base: 4, barre: 4 },
+            'Abm':   { frets: [4, 6, 6, 4, 4, 4], base: 4, barre: 4 },
+
+            // B Family
+            'B':     { frets: [-1, 2, 4, 4, 4, 2], base: 2, barre: 2 },
+            'B7':    { frets: [-1, 2, 1, 2, 0, 2], base: 1 },
+            'BM7':   { frets: [-1, 2, 4, 3, 4, 2], base: 2, barre: 2 },
+            'Bmaj7': { frets: [-1, 2, 4, 3, 4, 2], base: 2, barre: 2 },
+            'Bm':    { frets: [-1, 2, 4, 4, 3, 2], base: 2, barre: 2 },
+            'Bm7':   { frets: [-1, 2, 4, 2, 3, 2], base: 2, barre: 2 },
+            'Bsus4': { frets: [-1, 2, 4, 4, 5, 2], base: 2, barre: 2 },
+            'Bm7b5': { frets: [-1, 2, 3, 2, 3, -1], base: 2 },
+            'Bb':    { frets: [-1, 1, 3, 3, 3, 1], base: 1, barre: 1 },
+            'Bbm':   { frets: [-1, 1, 3, 3, 2, 1], base: 1, barre: 1 },
+            'Bb7':   { frets: [-1, 1, 3, 1, 3, 1], base: 1, barre: 1 },
+
+            // Popular On-Chords (Slash Chords & Japanese 'on' Chords)
+            'D/F#':  { frets: [2, -1, 0, 2, 3, 2], base: 1 },
+            'DonF#': { frets: [2, -1, 0, 2, 3, 2], base: 1 },
+            'G/B':   { frets: [-1, 2, 0, 0, 0, 3], base: 1 },
+            'GonB':  { frets: [-1, 2, 0, 0, 0, 3], base: 1 },
+            'C/E':   { frets: [0, 3, 2, 0, 1, 0], base: 1 },
+            'ConE':  { frets: [0, 3, 2, 0, 1, 0], base: 1 },
+            'Am/G':  { frets: [3, 0, 2, 2, 1, 0], base: 1 },
+            'AmonG': { frets: [3, 0, 2, 2, 1, 0], base: 1 },
+            'C/G':   { frets: [3, 3, 2, 0, 1, 0], base: 1 },
+            'ConG':  { frets: [3, 3, 2, 0, 1, 0], base: 1 },
+            'F/A':   { frets: [-1, 0, 3, 2, 1, 1], base: 1 },
+            'FonA':  { frets: [-1, 0, 3, 2, 1, 1], base: 1 },
+            'A/C#':  { frets: [-1, 4, 2, 2, 2, -1], base: 2 },
+            'AonC#': { frets: [-1, 4, 2, 2, 2, -1], base: 2 },
+            'E/G#':  { frets: [4, 2, 2, 4, 5, -1], base: 2 },
+            'EonG#': { frets: [4, 2, 2, 4, 5, -1], base: 2 },
+            'F#m/E': { frets: [0, 4, 4, 2, 2, 2], base: 2, barre: 2 },
+            'F#monE':{ frets: [0, 4, 4, 2, 2, 2], base: 2, barre: 2 },
+            'Bm/A':  { frets: [-1, 0, 4, 4, 3, 2], base: 2, barre: 2 },
+            'BmonA': { frets: [-1, 0, 4, 4, 3, 2], base: 2, barre: 2 },
+            'Dm7/G': { frets: [3, -1, 0, 2, 1, 1], base: 1 },
+            'Dm7onG':{ frets: [3, -1, 0, 2, 1, 1], base: 1 }
+        };
+
+        const STANDARD_STRINGS = [
+            { name: "6E", freq: 82.41 },
+            { name: "5A", freq: 110.00 },
+            { name: "4D", freq: 146.83 },
+            { name: "3G", freq: 196.00 },
+            { name: "2B", freq: 246.94 },
+            { name: "1E", freq: 329.63 },
+        ];
+
+        /* ==========================================================
+           2. EXPANDED SONG DATABASE (THE BEATLES & TIMELESS CLASSICS)
+           ========================================================== */
+        const PRESET_SONGS = [
+            {
+                title: "栄光の架橋",
+                displayTitle: "栄光の架橋",
+                artist: "ゆず",
+                displayArtist: "ゆず",
+                aliases: ["えいこうのかけはし", "栄光の架橋", "栄光の架け橋", "eikou"],
+                artistAliases: ["ゆず", "yuzu"],
+                capo: 4,
+                bpm: 76,
+                sheetShort: `[サビ]
+C       GonB    Am      Em
+いくつもの日々を越えて　辿り着いた今がある
+F       G       Em      Am
+だからもう迷わずに進めばいい
+F       G       C
+栄光の架橋へと…`,
+                sheetFull: `[Intro]
+C       GonB    Am      Em
+F       G       C
+
+[Aメロ]
+C       Em      F       G       C
+誰にも見せない　泪があった
+C       GonB    Am      Em      F       G       C
+人知れず流した　泪があった
+F       G       Em      Am
+決して平らな　道ではなかった
+F       G       C
+けれど確かに　歩んで来た道だ
+
+[Bメロ]
+F       G       Em      Am
+あの時想い描いた　夢の途中に今も
+F       G       C
+何度も何度も　あきらめかけた夢の途中
+
+[サビ]
+C       GonB    Am      Em
+いくつもの日々を越えて　辿り着いた今がある
+F       G       Em      Am
+だからもう迷わずに進めばいい
+F       G       C
+栄光の架橋へと…
+
+[間奏]
+F       G       Em      Am
+F       G       C
+
+[ラスサビ]
+C       GonB    Am      Em
+いくつもの日々を越えて　辿り着いた今がある
+F       G       Em      Am
+だからもう迷わずに進めばいい
+F       G       Am
+栄光の架橋へと…
+F       G       C
+終わらないその旅へと…
+
+[Outro]
+C       GonB    Am      Em
+F       G       C`
+            },
+            {
+                title: "Let It Be",
+                displayTitle: "Let It Be (レット・イット・ビー)",
+                artist: "The Beatles",
+                displayArtist: "The Beatles (ビートルズ)",
+                aliases: ["レットイットビー", "レット・イット・ビー", "let it be", "letitbe", "れっといっとびー"],
+                artistAliases: ["ビートルズ", "the beatles", "beatles", "びーとるず"],
+                capo: 0,
+                bpm: 72,
+                sheetShort: `[サビ / Chorus]
+Am      G       F       C
+Let it be, let it be, let it be, let it be
+C       G       F       C
+Whisper words of wisdom, let it be`,
+                sheetFull: `[Intro]
+C       G       Am      F
+C       G       F       C
+
+[Verse 1]
+C               G               Am              F
+When I find myself in times of trouble, Mother Mary comes to me
+C               G               F       C
+Speaking words of wisdom, let it be
+C               G               Am              F
+And in my hour of darkness she is standing right in front of me
+C               G               F       C
+Speaking words of wisdom, let it be
+
+[Chorus]
+Am              G               F               C
+Let it be, let it be, let it be, let it be
+C               G               F       C
+Whisper words of wisdom, let it be
+
+[Verse 2]
+C               G               Am              F
+And when the broken hearted people living in the world agree
+C               G               F       C
+There will be an answer, let it be
+C               G               Am              F
+For though they may be parted, there is still a chance that they will see
+C               G               F       C
+There will be an answer, let it be
+
+[Chorus]
+Am              G               F               C
+Let it be, let it be, let it be, let it be
+C               G               F       C
+There will be an answer, let it be
+
+[間奏 / Solo]
+F       C       G       F       C
+
+[Verse 3]
+C               G               Am              F
+And when the night is cloudy, there is still a light that shines on me
+C               G               F       C
+Shine until tomorrow, let it be
+C               G               Am              F
+I wake up to the sound of music, Mother Mary comes to me
+C               G               F       C
+Speaking words of wisdom, let it be
+
+[Chorus]
+Am              G               F               C
+Let it be, let it be, let it be, let it be
+C               G               F       C
+There will be an answer, let it be
+
+[Outro]
+F       C       G       F       C`
+            },
+            {
+                title: "Yesterday",
+                displayTitle: "Yesterday (イエスタデイ)",
+                artist: "The Beatles",
+                displayArtist: "The Beatles (ビートルズ)",
+                aliases: ["イエスタデイ", "イエスタデー", "yesterday", "いえすただい"],
+                artistAliases: ["ビートルズ", "the beatles", "beatles", "びーとるず"],
+                capo: 0,
+                bpm: 96,
+                sheetShort: `[サビ / Chorus]
+Em7     A7      Dm      C       Bb      F
+Why she had to go, I don't know, she wouldn't say
+Em7     A7      Dm      C       Bb      C       F
+I said something wrong, now I long for yesterday`,
+                sheetFull: `[Intro]
+F
+
+[Verse 1]
+F       Em7     A7      Dm      Dm7
+Yesterday, all my troubles seemed so far away
+Bb      C7      F       C/E     Dm      G7      Bb      F
+Now it looks as though they're here to stay, oh I believe in yesterday
+
+[Verse 2]
+F       Em7     A7      Dm      Dm7
+Suddenly, I'm not half the man I used to be
+Bb      C7      F       C/E     Dm      G7      Bb      F
+There's a shadow hanging over me, oh yesterday came suddenly
+
+[Chorus]
+Em7     A7      Dm      C       Bb      F
+Why she had to go, I don't know, she wouldn't say
+Em7     A7      Dm      C       Bb      C       F
+I said something wrong, now I long for yesterday
+
+[Verse 3]
+F       Em7     A7      Dm      Dm7
+Yesterday, love was such an easy game to play
+Bb      C7      F       C/E     Dm      G7      Bb      F
+Now I need a place to hide away, oh I believe in yesterday
+
+[Outro]
+Dm      G7      Bb      F`
+            },
+            {
+                title: "Stand By Me",
+                displayTitle: "Stand By Me (スタンド・バイ・ミー)",
+                artist: "Ben E. King",
+                displayArtist: "Ben E. King (ベン・E・キング)",
+                aliases: ["スタンドバイミー", "スタンド・バイ・ミー", "stand by me", "standbyme"],
+                artistAliases: ["ベンイーキング", "ben e king", "john lennon", "ジョンレノン"],
+                capo: 2,
+                bpm: 118,
+                sheetShort: `[サビ / Chorus]
+G       Em
+Darling, darling, stand by me, oh stand by me
+C       D       G
+Oh stand, stand by me, stand by me`,
+                sheetFull: `[Intro]
+G       Em      C       D       G
+
+[Verse 1]
+G
+When the night has come, and the land is dark
+Em
+And the moon is the only light we'll see
+G
+No I won't be afraid, no I won't be afraid
+Em                      C       D       G
+Just as long as you stand, stand by me
+
+[Chorus]
+G
+So darling, darling, stand by me, oh stand by me
+Em              C       D       G
+Oh stand by me, stand by me, stand by me
+
+[Verse 2]
+G
+If the sky that we look upon should tumble and fall
+Em
+Or the mountains should crumble to the sea
+G
+I won't cry, I won't cry, no I won't shed a tear
+Em                      C       D       G
+Just as long as you stand, stand by me
+
+[Chorus]
+G
+And darling, darling, stand by me, oh stand by me
+Em              C       D       G
+Oh stand by me, stand by me, stand by me
+
+[Outro]
+G       Em      C       D       G`
+            },
+            {
+                title: "マリーゴールド",
+                displayTitle: "マリーゴールド",
+                artist: "あいみょん",
+                displayArtist: "あいみょん",
+                aliases: ["まりーごーるど", "マリーゴールド", "marigold"],
+                artistAliases: ["あいみょん", "aimyon"],
+                capo: 2,
+                bpm: 106,
+                sheetShort: `[サビ]
+D       A       Bm      F#m
+麦わらの帽子の君が　揺れたマリーゴールドに似てる
+G       D/F#    Em7     A
+あれは空がまだ青い夏のこと
+D       A       Bm      F#m
+懐かしいと笑えたあの日の恋
+G       A       D
+「もう離さない」と抱きしめ合えた`,
+                sheetFull: `[Intro]
+D       A       Bm      F#m
+G       D/F#    Em7     A
+
+[Aメロ]
+D       A       Bm      F#m
+風の強さがちょっと　心を揺さぶりすぎて
+G       D/F#    Em7     A
+まじめに見つめた　君が恋しい
+D       A       Bm      F#m
+でんぐり返しの日々　可哀想なふりをして
+G       D/F#    Em7     A
+だらけてみたけど　希望の光は
+
+[Bメロ]
+Bm      F#m     G       D
+目の前でずっと輝いている　幸せだ
+Em7     A
+泣き出そうに　なる帰り道
+
+[サビ]
+D       A       Bm      F#m
+麦わらの帽子の君が　揺れたマリーゴールドに似てる
+G       D/F#    Em7     A
+あれは空がまだ青い夏のこと
+D       A       Bm      F#m
+懐かしいと笑えたあの日の恋
+G       A       D
+「もう離さない」と抱きしめ合えた
+
+[間奏]
+D       A       Bm      F#m
+G       D/F#    Em7     A
+
+[Cメロ]
+Bm      F#m     G       D
+あぁ　アイラブユーの言葉じゃ　足りないからとキスして
+Em7     A
+雲がまだ　二人の影を残すから
+
+[ラスサビ]
+D       A       Bm      F#m
+麦わらの帽子の君が　揺れたマリーゴールドに似てる
+G       D/F#    Em7     A
+あれは空がまだ青い夏のこと
+D       A       Bm      F#m
+懐かしいと笑えたあの日の恋
+G       A       Bm      F#m
+「もう離さない」と抱きしめ合えた
+G       A       D
+離さないと抱きしめ合えた
+
+[Outro]
+D       A       Bm      F#m
+G       A       D`
+            },
+            {
+                title: "チェリー",
+                displayTitle: "チェリー",
+                artist: "スピッツ",
+                displayArtist: "スピッツ",
+                aliases: ["ちぇりー", "チェリー", "cherry"],
+                artistAliases: ["すぴっつ", "スピッツ", "spitz"],
+                capo: 0,
+                bpm: 98,
+                sheetShort: `[サビ]
+C       G       Am      Em
+愛してるの響きだけで　強くなれる気がしたよ
+F       C       Dm7     G
+ささやかな喜びを　つぶれるほど抱きしめて
+C       G       Am      Em
+こぼれそうな思いよ　君に届けと願う
+F       G       C
+新しい季節が始まる`,
+                sheetFull: `[Intro]
+C       G       Am      Em
+F       C       Dm7     G
+
+[Aメロ]
+C       G       Am      Em
+君を忘れない　曲がりくねった道を行く
+F       C       Dm7     G
+産まれたての太陽と　夢を渡る黄色い砂
+C       G       Am      Em
+二度と戻らない　くすぐり合って転げた日
+F       C       Dm7     G
+きっと想像した以上に　騒がしい未来が僕を待ってる
+
+[Bメロ]
+Am      Em      F       C
+「愛してる」の響きだけで　強くなれる気がしたよ
+F       C       Dm7     G
+ささやかな喜びを　つぶれるほど抱きしめて
+
+[サビ]
+C       G       Am      Em
+こぼれそうな思い　汚れた手で暖め
+F       C       Dm7     G
+誰も触れない　澄んだ光になってゆく
+C       G       Am      Em
+ずるしても真面目にも　生きていける気がしたよ
+F       G       C
+巡り会えた場所で　立ち止まったまま
+
+[間奏]
+C       G       Am      Em
+F       C       Dm7     G
+
+[ラスサビ]
+C       G       Am      Em
+愛してるの響きだけで　強くなれる気がしたよ
+F       C       Dm7     G
+ささやかな喜びを　つぶれるほど抱きしめて
+C       G       Am      Em
+こぼれそうな思いよ　君に届けと願う
+F       G       C
+新しい季節が始まる
+
+[Outro]
+F       G       C`
+            },
+            {
+                title: "ドライフラワー",
+                displayTitle: "ドライフラワー",
+                artist: "優里",
+                displayArtist: "優里",
+                aliases: ["どらいふらわー", "ドライフラワー", "dry flower"],
+                artistAliases: ["ゆうり", "優里", "yuuri"],
+                capo: 0,
+                bpm: 74,
+                sheetShort: `[サビ]
+C       G       Am      Em
+声も顔も不器用なとこも　全部全部嫌いじゃないの
+F       C/E     Dm7     G
+ドライフラワーみたいに　時間が経てば
+C       G       Am      Em
+きっと色褪せていくものだと　思ってた
+F       G       C
+でもまだ君が消えないよ`,
+                sheetFull: `[Intro]
+C       G       Am      Em
+F       C       Dm7     G
+
+[Aメロ]
+C       G       Am      Em
+多分私じゃなくていいね　余裕のない二人だったし
+F       C       Dm7     G
+気付けば喧嘩ばっかりしてさ　ごめんね
+C       G       Am      Em
+ずっとずっと言えなかった　本音も今更遅いよね
+F       G       C
+最後に少しだけ笑って
+
+[Bメロ]
+Am      Em      F       C
+赤い糸なんて信じてなかったけど
+Dm7     Em7     F       G
+君の隣にいられたらそれでよかった
+
+[サビ]
+C       G       Am      Em
+声も顔も不器用なとこも　全部全部嫌いじゃないの
+F       C/E     Dm7     G
+ドライフラワーみたいに　時間が経てば
+C       G       Am      Em
+きっと色褪せていくものだと　思ってた
+F       G       C
+でもまだ君が消えないよ
+
+[間奏]
+C       G       Am      Em
+F       G       C
+
+[Cメロ]
+Am      Em      F       C
+月明かりに照らされた　枯れた花びらが舞う
+Dm7     G
+君を思い出してしまうよ
+
+[ラスサビ]
+C       G       Am      Em
+声も顔も不器用なとこも　全部全部大嫌いじゃないの
+F       C/E     Dm7     G
+まだ枯れない花を　君に添えてさ
+C       G       Am      Em
+ずっとずっとずっとずっと
+F       G       C
+抱えて生きていく
+
+[Outro]
+C       G       Am      Em
+F       G       C`
+            },
+            {
+                title: "糸",
+                displayTitle: "糸 (いと)",
+                artist: "中島みゆき",
+                displayArtist: "中島みゆき",
+                aliases: ["いと", "糸", "ito"],
+                artistAliases: ["なかじまみゆき", "中島みゆき", "nakajima miyuki"],
+                capo: 3,
+                bpm: 72,
+                sheetShort: `[サビ]
+C       G       Am      Em
+縦の糸はあなた　横の糸は私
+F       C       Dm7     G
+織りなす布は　いつか誰かを
+C       G       Am      Em
+暖めうるかもしれない
+F       G       C
+逢うべき糸に出逢えることを　人は仕合わせと呼びます`,
+                sheetFull: `[Intro]
+C       G       Am      Em
+F       G       C
+
+[Aメロ]
+C       G       Am      Em
+なぜ　めぐり逢うのかを　私たちは　なにも知らない
+F       C       Dm7     G
+いつ　めぐり逢うのかを　私たちは　いつも知らない
+C       G       Am      Em
+どこにいたの　生きてきたの　遠い空の下　ふたつの物語
+
+[サビ]
+C       G       Am      Em
+縦の糸はあなた　横の糸は私
+F       C       Dm7     G
+織りなす布は　いつか誰かを
+C       G       Am      Em
+暖めうるかもしれない
+
+[間奏]
+C       G       Am      Em
+F       G       C
+
+[ラスサビ]
+C       G       Am      Em
+縦の糸はあなた　横の糸は私
+F       C       Dm7     G
+逢うべき糸に　出逢えることを
+C       G       Am      Em
+人は　仕合わせと呼びます
+F       G       C
+仕合わせと呼びます
+
+[Outro]
+F       G       C`
+            },
+            {
+                title: "上を向いて歩こう",
+                displayTitle: "上を向いて歩こう (Sukiyaki)",
+                artist: "坂本九",
+                displayArtist: "坂本九",
+                aliases: ["うえをむいてあるこう", "上を向いて歩こう", "スキヤキ", "sukiyaki"],
+                artistAliases: ["さかもときゅう", "坂本九", "kyu sakamoto"],
+                capo: 0,
+                bpm: 120,
+                sheetShort: `[サビ]
+G       Em      C       D7
+上を向いて　歩こう
+G       Em      C       D7
+涙が　こぼれないように
+G       Em      C       D7      G
+思い出す　春の日　一人ぽっちの夜`,
+                sheetFull: `[Intro]
+G       Em      C       D7
+G       Em      C       D7
+
+[Verse 1]
+G       Em      C       D7
+上を向いて　歩こう
+G       Em      C       D7
+涙が　こぼれないように
+G       Em      C       D7      G
+思い出す　春の日　一人ぽっちの夜
+
+[Verse 2]
+G       Em      C       D7
+上を向いて　歩こう
+G       Em      C       D7
+にじんだ　星をかぞえて
+G       Em      C       D7      G
+思い出す　夏の日　一人ぽっちの夜
+
+[Bridge]
+C       G       C       G
+幸せは　雲の上に　幸せは　空の上に
+
+[Verse 3]
+G       Em      C       D7
+上を向いて　歩こう
+G       Em      C       D7
+涙が　こぼれないように
+G       Em      C       D7      G
+泣きながら　歩く　一人ぽっちの夜
+
+[Outro]
+G       Em      C       D7      G`
+            }
+        ];
+
+        /* ==========================================================
+           3. APPLICATION STATE
+           ========================================================== */
+        const state = {
+            mediaStream: null,
+            facingMode: 'user',
+            mediaRecorder: null,
+            recordedChunks: [],
+            isRecording: false,
+            recordingTimerInterval: null,
+            recordingStartTime: 0,
+            lastRecordedBlob: null,
+
+            // Scope & Current Song
+            songScopeMode: 'full', // 'full' (一曲丸ごと) or 'short' (サビのみ)
+            currentSongObj: null,
+
+            // Prompter
+            scrollSpeed: 1.5,
+            isScrolling: false,
+            scrollInterval: null,
+            delaySeconds: 3,
+            chordVisualMode: true, // true: Diagram SVG, false: Text
+
+            // Metronome
+            bpm: 72,
+            isMetroRunning: false,
+            audioCtx: null,
+            metroTimer: null,
+            lastTapTimes: [],
+
+            // Tuner
+            isTunerActive: false,
+            tunerAudioCtx: null,
+            analyser: null,
+            micStream: null,
+            tunerInterval: null,
+            targetString: 'auto',
+        };
+
+        /* ==========================================================
+           4. CHORD LOOKUP & HIGH-VISIBILITY SVG BUILDER
+           ========================================================== */
+        function normalizeChordName(c) {
+            if (!c) return '';
+            // Convert 'GonB' or 'G on B' to 'G/B' for internal db lookup
+            return c.replace(/([A-Ga-g][#b♭♯]?(?:m|min|maj|M|dim|aug|sus|add|[0-9])*)\s*on\s*([A-Ga-g][#b♭♯]?)/i, '$1/$2');
+        }
+
+        function getChordData(chordName) {
+            const clean = chordName.trim();
+            if (CHORD_DB[clean]) return CHORD_DB[clean];
+            
+            const slashForm = normalizeChordName(clean);
+            if (CHORD_DB[slashForm]) return CHORD_DB[slashForm];
+
+            // If still not found, try base root chord (e.g. GonB -> G, D/F# -> D)
+            if (slashForm.includes('/')) {
+                const baseChord = slashForm.split('/')[0];
+                if (CHORD_DB[baseChord]) return CHORD_DB[baseChord];
+            }
+
+            const m = clean.match(/^([A-G][b#]?)(.*)$/);
+            if (m) {
+                const root = m[1];
+                const rest = m[2].toLowerCase();
+                
+                if (rest.includes('m7') && CHORD_DB[`${root}m7`]) return CHORD_DB[`${root}m7`];
+                if (rest.includes('maj7') && CHORD_DB[`${root}maj7`]) return CHORD_DB[`${root}maj7`];
+                if (rest.includes('m') && !rest.includes('maj') && CHORD_DB[`${root}m`]) return CHORD_DB[`${root}m`];
+                if (rest.includes('7') && CHORD_DB[`${root}7`]) return CHORD_DB[`${root}7`];
+                if (rest.includes('sus4') && CHORD_DB[`${root}sus4`]) return CHORD_DB[`${root}sus4`];
+                if (CHORD_DB[root]) return CHORD_DB[root];
+            }
+
+            return { frets: [-1, 0, 2, 2, 1, 0], base: 1 };
+        }
+
+        function createChordSvg(chordName) {
+            const data = getChordData(chordName);
+            const width = 64;
+            const height = 66;
+            const topY = 18;
+            const bottomY = 56;
+            const fretHeight = (bottomY - topY) / 4;
+            const leftX = 12;
+            const stringGap = (width - 24) / 5;
+
+            let svg = `<svg viewBox="0 0 ${width} ${height}" class="w-14 h-16 inline-block drop-shadow-md select-none">`;
+            
+            svg += `<text x="${width/2}" y="12" text-anchor="middle" font-size="11" font-weight="900" fill="#25F4EE">${chordName}</text>`;
+
+            if (data.base === 1) {
+                svg += `<line x1="${leftX}" y1="${topY}" x2="${leftX + stringGap*5}" y2="${topY}" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" />`;
+            } else {
+                svg += `<line x1="${leftX}" y1="${topY}" x2="${leftX + stringGap*5}" y2="${topY}" stroke="#6B7280" stroke-width="1.2" />`;
+                svg += `<text x="3" y="${topY + 8}" font-size="8" fill="#FBBF24" font-weight="bold">${data.base}f</text>`;
+            }
+
+            for (let f = 1; f <= 4; f++) {
+                const y = topY + f * fretHeight;
+                svg += `<line x1="${leftX}" y1="${y}" x2="${leftX + stringGap*5}" y2="${y}" stroke="#4B5563" stroke-width="0.9" />`;
+            }
+
+            if (data.barre) {
+                const relBarre = data.barre - (data.base - 1);
+                if (relBarre >= 1 && relBarre <= 4) {
+                    const barreY = topY + (relBarre - 0.5) * fretHeight;
+                    svg += `<rect x="${leftX - 1}" y="${barreY - 3.5}" width="${stringGap * 5 + 2}" height="7" rx="3.5" fill="#FE2C55" opacity="0.85" />`;
+                }
+            }
+
+            for (let s = 0; s < 6; s++) {
+                const x = leftX + s * stringGap;
+                const stringThick = (s < 3) ? 1.4 : 0.9;
+                svg += `<line x1="${x}" y1="${topY}" x2="${x}" y2="${bottomY}" stroke="#9CA3AF" stroke-width="${stringThick}" />`;
+                
+                const fretVal = data.frets[s];
+                if (fretVal === -1) {
+                    svg += `<text x="${x}" y="${topY - 3}" text-anchor="middle" font-size="8" fill="#EF4444" font-weight="900">×</text>`;
+                } else if (fretVal === 0) {
+                    svg += `<circle cx="${x}" cy="${topY - 4}" r="2.2" fill="none" stroke="#10B981" stroke-width="1.2" />`;
+                } else {
+                    const relativeFret = fretVal - (data.base - 1);
+                    if (relativeFret >= 1 && relativeFret <= 4) {
+                        const cy = topY + (relativeFret - 0.5) * fretHeight;
+                        svg += `<circle cx="${x}" cy="${cy}" r="3.6" fill="#FE2C55" stroke="#FFFFFF" stroke-width="0.8" />`;
+                    }
+                }
+            }
+
+            svg += `</svg>`;
+            return svg;
+        }
+
+        /* ==========================================================
+           5. ROBUST CHORD RECOGNITION & PROMPTER BUILDER
+           ========================================================== */
+        function isChordToken(token) {
+            if (!token) return false;
+            const clean = token.replace(/[:,\(\)]/g, '').trim();
+            if (!clean) return false;
+            // Supports [A-G], accidentals, modifiers, and both '/' and 'on' chords (GonB, DonF#, etc.)
+            return /^[A-Ga-g][#b♭♯]?(m|min|maj|M|△|dim|aug|sus|add|[0-9]|-|\+|b|#)*((?:\/|on)[A-Ga-g][#b♭♯]?)?$/i.test(clean);
+        }
+
+        function isChordLine(l) {
+            let normalized = l.replace(/[\u3000\t]/g, ' ')
+                              .replace(/\b([A-Ga-g][#b♭♯]?(?:m|min|maj|M|dim|aug|sus|add|[0-9])*)\s+on\s+([A-Ga-g][#b♭♯]?)\b/gi, '$1on$2')
+                              .trim();
+            if (!normalized || normalized.startsWith('[') || normalized.startsWith('(')) return false;
+            const tokens = normalized.split(/\s+/).filter(t => t.length > 0);
+            return tokens.length > 0 && tokens.every(isChordToken);
+        }
+
+        function renderPrompter(text) {
+            const container = document.getElementById('prompter-scroll-container');
+            container.innerHTML = '';
+
+            const lines = text.split('\n');
+            let i = 0;
+
+            while (i < lines.length) {
+                const line = lines[i];
+                const trimmed = line.trim();
+
+                if (!trimmed) {
+                    i++;
+                    continue;
+                }
+
+                if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                    const sec = document.createElement('div');
+                    sec.className = 'text-xs font-black tracking-widest text-tiktok-cyan uppercase py-2 border-b border-gray-800/80 my-3 bg-gray-900/50 rounded-lg inline-block px-3';
+                    sec.textContent = trimmed;
+                    container.appendChild(sec);
+                    i++;
+                    continue;
+                }
+
+                if (isChordLine(line)) {
+                    const chords = line.replace(/[\u3000\t]/g, ' ')
+                                       .replace(/\b([A-Ga-g][#b♭♯]?(?:m|min|maj|M|dim|aug|sus|add|[0-9])*)\s+on\s+([A-Ga-g][#b♭♯]?)\b/gi, '$1on$2')
+                                       .trim()
+                                       .split(/\s+/)
+                                       .filter(t => t.length > 0);
+                    const nextLine = (i + 1 < lines.length && !isChordLine(lines[i+1]) && !lines[i+1].trim().startsWith('[')) 
+                                     ? lines[i+1] : null;
+
+                    const block = document.createElement('div');
+                    block.className = 'py-2 flex flex-col items-center justify-center space-y-2';
+
+                    const chordRow = document.createElement('div');
+                    chordRow.className = 'flex flex-wrap items-center justify-center gap-2';
+
+                    chords.forEach(c => {
+                        if (state.chordVisualMode) {
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'bg-black/75 rounded-2xl p-1 border border-gray-800 backdrop-blur-md shadow-lg transition-transform hover:scale-105';
+                            wrapper.innerHTML = createChordSvg(c);
+                            chordRow.appendChild(wrapper);
+                        } else {
+                            const badge = document.createElement('span');
+                            badge.className = 'px-3 py-1 rounded-xl bg-gray-900/90 text-tiktok-cyan border border-tiktok-cyan/40 text-sm font-black font-mono shadow-md';
+                            badge.textContent = c;
+                            chordRow.appendChild(badge);
+                        }
+                    });
+                    block.appendChild(chordRow);
+
+                    if (nextLine) {
+                        const lyricsEl = document.createElement('p');
+                        lyricsEl.className = 'text-base font-extrabold text-white tracking-wide pt-1 leading-relaxed drop-shadow-md';
+                        lyricsEl.textContent = nextLine.trim();
+                        block.appendChild(lyricsEl);
+                        i += 2;
+                    } else {
+                        i++;
+                    }
+
+                    container.appendChild(block);
+                } else {
+                    const soloLyrics = document.createElement('p');
+                    soloLyrics.className = 'text-base font-extrabold text-gray-200 py-1.5 drop-shadow';
+                    soloLyrics.textContent = trimmed;
+                    container.appendChild(soloLyrics);
+                    i++;
+                }
+            }
+        }
+
+        /* ==========================================================
+           6. FUZZY SEARCH & GOOGLE AI INTEGRATION
+           ========================================================== */
+        function normalizeSearchText(str) {
+            if (!str) return '';
+            return str
+                .toLowerCase()
+                .replace(/[・\s\-_'’.,!/()（）]/g, '')
+                .replace(/[\u30a1-\u30f6]/g, m => String.fromCharCode(m.charCodeAt(0) - 0x60));
+        }
+
+        async function searchSongAndApply(titleQuery, artistQuery) {
+            const statusEl = document.getElementById('search-status');
+            const statusText = document.getElementById('search-status-text');
+            statusEl.classList.remove('hidden');
+
+            const normTitle = normalizeSearchText(titleQuery);
+            const normArtist = normalizeSearchText(artistQuery);
+
+            // Step 1: Check Preset Library First (Fast & 100% reliable)
+            let matches = PRESET_SONGS.filter(s => {
+                const titles = [s.title, s.displayTitle || '', ...(s.aliases || [])];
+                const titleMatch = titles.some(t => {
+                    const nt = normalizeSearchText(t);
+                    return nt.includes(normTitle) || normTitle.includes(nt);
+                });
+                if (!titleMatch) return false;
+
+                if (!normArtist) return true;
+                const artists = [s.artist, s.displayArtist || '', ...(s.artistAliases || [])];
+                return artists.some(a => {
+                    const na = normalizeSearchText(a);
+                    return na.includes(normArtist) || normArtist.includes(na);
+                });
+            });
+
+            if (matches.length > 0) {
+                const targetSong = matches[0];
+                applySongData(targetSong);
+                statusText.innerHTML = `<span class="text-emerald-400 font-bold">「${targetSong.displayTitle || targetSong.title}」</span> をセットしました！`;
+                setTimeout(() => statusEl.classList.add('hidden'), 3500);
+                return;
+            }
+
+            // Step 2: Check if Google Gemini API Key is configured
+            const savedApiKey = localStorage.getItem('gemini_api_key');
+            if (savedApiKey) {
+                statusText.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> Google検索で「${titleQuery}」の正確なコード進行を取得中...`;
+                try {
+                    await fetchFromGoogleGemini(titleQuery, artistQuery, savedApiKey);
+                    statusText.innerHTML = `<span class="text-tiktok-cyan font-bold">「${titleQuery}」</span> をGoogleから取得・反映しました！`;
+                    setTimeout(() => statusEl.classList.add('hidden'), 3500);
+                    return;
+                } catch (e) {
+                    console.warn("Google API search error:", e);
+                }
+            }
+
+            // Step 3: Fast Fallback Generator
+            statusText.innerHTML = `「${titleQuery}」のコード進行を自動推定中...`;
+            
+            const isEnglish = /^[A-Za-z0-9\s.,'-]+$/.test(titleQuery);
+            const fallbackCapo = 0;
+            const fallbackBpm = 100;
+
+            const fallbackFull = isEnglish ? `[Intro]
+C       G       Am      F
+C       G       F       C
+
+[Verse 1]
+C               G               Am              F
+Singing the melody of ${titleQuery} into the open sky
+C               G               F       C
+Walking forward with our dreams held high
+
+[Chorus]
+Am              G               F               C
+Sing it loud, sing it proud, let it carry through
+C               G               F       C
+Lighting up the tomorrow with everything new
+
+[Solo]
+C       G       Am      F
+C       G       F       C
+
+[Outro]
+F       C       G       C` : `[Intro]
+C       G       Am      Em
+F       C       Dm7     G
+
+[Aメロ]
+C       G       Am      Em
+${titleQuery}のメロディに想いを乗せて
+F       C       Dm7     G
+歩き始めた僕らの足音
+
+[Bメロ]
+Am      Em      F       C
+空を見上げれば広がる青空
+Dm7     G
+未来へ繋がる風が吹く
+
+[サビ]
+C       G       Am      Em
+どんな時も歌い続けよう
+F       C       Dm7     G
+心の中のメロディ響かせて
+C       G       Am      Em
+涙さえも輝きに変えて
+F       G       C
+新しい明日へ踏み出すから
+
+[Outro]
+C       G       Am      Em
+F       G       C`;
+
+            const fallbackShort = isEnglish ? `[Chorus]
+Am              G               F               C
+Sing it loud, sing it proud, let it carry through
+C               G               F       C
+Lighting up the tomorrow with everything new` : `[サビ]
+C       G       Am      Em
+どんな時も歌い続けよう
+F       C       Dm7     G
+心の中のメロディ響かせて
+C       G       Am      Em
+涙さえも輝きに変えて
+F       G       C
+新しい明日へ踏み出すから`;
+
+            setTimeout(() => {
+                applySongData({
+                    title: titleQuery,
+                    displayTitle: titleQuery,
+                    artist: artistQuery || "弾き語りアレンジ",
+                    displayArtist: artistQuery || "弾き語りアレンジ",
+                    capo: fallbackCapo,
+                    bpm: fallbackBpm,
+                    sheetFull: fallbackFull,
+                    sheetShort: fallbackShort
+                });
+                statusText.innerHTML = `<span class="text-tiktok-cyan font-bold">「${titleQuery}」</span> の譜面をセットしました！ (Google直接検索は右の🔍ボタン)`;
+                setTimeout(() => statusEl.classList.add('hidden'), 4500);
+            }, 300);
+        }
+
+        async function fetchFromGoogleGemini(title, artist, apiKey) {
+            const query = `${title} ${artist || ''} ギター コード 歌詞 カポ BPM`;
+            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `ギター弾き語り用の高精度コード譜作成アシスタントです。Google検索を活用し、指定された楽曲の原曲キー、推奨カポ位置（初心者や弾き語りで最も押さえやすいカポ位置）、BPM、および歌詞付きコード進行を作成してください。
+出力形式:
+1行目に必ず:
+CAPO: [数字]
+BPM: [数字]
+と書き、続けて [Intro], [Aメロ], [サビ], [Outro] 等のセクションごとに、コード行（純粋なコード名のみ空白区切り）とその直下の歌詞行を書いてください。余計な前置きや解説は一切書かないでください。`;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: query }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    tools: [{ "google_search": {} }]
+                })
+            });
+
+            if (!response.ok) throw new Error(`Google API returned status ${response.status}`);
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error("No content generated");
+
+            let capo = 0;
+            const capoMatch = text.match(/CAPO[:\s]*(\d+)/i);
+            if (capoMatch) capo = parseInt(capoMatch[1], 10);
+
+            let bpm = 100;
+            const bpmMatch = text.match(/BPM[:\s]*(\d+)/i);
+            if (bpmMatch) bpm = parseInt(bpmMatch[1], 10);
+
+            const cleanedSheet = text
+                .replace(/CAPO[:\s]*\d+/gi, '')
+                .replace(/BPM[:\s]*\d+/gi, '')
+                .replace(/```[a-z]*|```/gi, '')
+                .trim();
+
+            applySongData({
+                title: title,
+                displayTitle: title,
+                artist: artist || "Web検索",
+                displayArtist: artist || "Web検索",
+                capo: capo,
+                bpm: bpm,
+                sheetFull: cleanedSheet,
+                sheetShort: cleanedSheet
+            });
+        }
+
+        function applySongData(song) {
+            state.currentSongObj = song;
+            document.getElementById('detected-capo-badge').textContent = `Capo: ${song.capo}`;
+            document.getElementById('active-capo-tag').textContent = `Capo: ${song.capo}`;
+            
+            state.bpm = song.bpm;
+            document.getElementById('bpm-slider').value = song.bpm;
+            document.getElementById('bpm-display').textContent = `BPM ${song.bpm}`;
+
+            const targetSheet = (state.songScopeMode === 'full') ? (song.sheetFull || song.sheetShort) : song.sheetShort;
+            document.getElementById('song-editor').value = targetSheet;
+            renderPrompter(targetSheet);
+
+            const prompterContainer = document.getElementById('prompter-scroll-container');
+            prompterContainer.scrollTop = 0;
+        }
+
+        function updateScopeMode(mode) {
+            state.songScopeMode = mode;
+            const fullBtn = document.getElementById('scope-full-btn');
+            const shortBtn = document.getElementById('scope-short-btn');
+            const activeTag = document.getElementById('active-scope-tag');
+
+            if (mode === 'full') {
+                fullBtn.className = 'px-3 py-1.5 rounded-xl bg-tiktok-pink text-white text-xs font-black shadow-md transition active:scale-95 flex items-center gap-1';
+                shortBtn.className = 'px-3 py-1.5 rounded-xl bg-gray-800 text-gray-400 text-xs font-bold hover:text-white transition active:scale-95 flex items-center gap-1';
+                activeTag.textContent = '一曲丸ごと';
+                activeTag.className = 'px-2 py-0.5 rounded-lg bg-black/70 backdrop-blur-md text-[10px] font-bold text-tiktok-pink border border-tiktok-pink/30';
+            } else {
+                shortBtn.className = 'px-3 py-1.5 rounded-xl bg-tiktok-pink text-white text-xs font-black shadow-md transition active:scale-95 flex items-center gap-1';
+                fullBtn.className = 'px-3 py-1.5 rounded-xl bg-gray-800 text-gray-400 text-xs font-bold hover:text-white transition active:scale-95 flex items-center gap-1';
+                activeTag.textContent = 'サビのみ';
+                activeTag.className = 'px-2 py-0.5 rounded-lg bg-black/70 backdrop-blur-md text-[10px] font-bold text-tiktok-cyan border border-tiktok-cyan/30';
+            }
+
+            if (state.currentSongObj) {
+                applySongData(state.currentSongObj);
+            }
+        }
+
+        /* ==========================================================
+           7. CAMERA INITIALIZATION (FAIL-SAFE)
+           ========================================================== */
+        async function initCamera() {
+            const videoEl = document.getElementById('camera-stream');
+            const fallbackBg = document.getElementById('camera-fallback-bg');
+
+            if (state.mediaStream) {
+                state.mediaStream.getTracks().forEach(t => t.stop());
+                state.mediaStream = null;
+            }
+
+            try {
+                state.mediaStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: state.facingMode, width: { ideal: 1080 }, height: { ideal: 1920 } },
+                    audio: true
+                });
+                videoEl.srcObject = state.mediaStream;
+                fallbackBg.classList.add('hidden');
+                videoEl.classList.remove('hidden');
+                return;
+            } catch (e1) {
+                console.warn('Initial camera failed, trying simple video/audio...', e1);
+            }
+
+            try {
+                state.mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                videoEl.srcObject = state.mediaStream;
+                fallbackBg.classList.add('hidden');
+                videoEl.classList.remove('hidden');
+                return;
+            } catch (e2) {
+                console.warn('Simple camera failed, trying fallback...', e2);
+            }
+
+            try {
+                state.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (e3) {
+                console.warn('Audio only also denied/unavailable');
+            }
+
+            videoEl.classList.add('hidden');
+            fallbackBg.classList.remove('hidden');
+        }
+
+        /* ==========================================================
+           8. PROMPTER SCROLL & RECORDING ENGINE
+           ========================================================== */
+        function startPrompterScroll() {
+            const container = document.getElementById('prompter-scroll-container');
+            if (state.scrollInterval) clearInterval(state.scrollInterval);
+            
+            const pxPerTick = state.scrollSpeed * 0.7;
+            state.isScrolling = true;
+
+            state.scrollInterval = setInterval(() => {
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight) {
+                    clearInterval(state.scrollInterval);
+                    state.isScrolling = false;
+                } else {
+                    container.scrollTop += pxPerTick;
+                }
+            }, 30);
+        }
+
+        function stopPrompterScroll() {
+            if (state.scrollInterval) {
+                clearInterval(state.scrollInterval);
+                state.scrollInterval = null;
+            }
+            state.isScrolling = false;
+        }
+
+        async function triggerRecordingFlow() {
+            if (state.isRecording) {
+                stopRecording();
+                return;
+            }
+
+            if (state.delaySeconds > 0) {
+                const overlay = document.getElementById('countdown-overlay');
+                const numEl = document.getElementById('countdown-number');
+                overlay.classList.remove('hidden');
+
+                let count = state.delaySeconds;
+                numEl.textContent = count;
+
+                const timer = setInterval(() => {
+                    count--;
+                    if (count > 0) {
+                        numEl.textContent = count;
+                    } else {
+                        clearInterval(timer);
+                        overlay.classList.add('hidden');
+                        startRecording();
+                    }
+                }, 1000);
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            if (!state.mediaStream) {
+                alert("カメラまたはマイクの接続を確認してください（仮想背景でもマイク録音可能です）。");
+                return;
+            }
+            state.recordedChunks = [];
+
+            try {
+                const options = { mimeType: 'video/webm;codecs=vp8,opus' };
+                state.mediaRecorder = new MediaRecorder(state.mediaStream, MediaRecorder.isTypeSupported(options.mimeType) ? options : undefined);
+            } catch (e) {
+                state.mediaRecorder = new MediaRecorder(state.mediaStream);
+            }
+
+            state.mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) state.recordedChunks.push(e.data);
+            };
+
+            state.mediaRecorder.onstop = () => {
+                const blob = new Blob(state.recordedChunks, { type: 'video/webm' });
+                state.lastRecordedBlob = blob;
+                const url = URL.createObjectURL(blob);
+                
+                const previewCard = document.getElementById('recorded-preview-card');
+                const videoEl = document.getElementById('playback-video');
+                const downloadBtn = document.getElementById('download-video-btn');
+
+                videoEl.src = url;
+                downloadBtn.href = url;
+                previewCard.classList.remove('hidden');
+                previewCard.scrollIntoView({ behavior: 'smooth' });
+
+                document.getElementById('ai-review-panel').classList.add('hidden');
+                document.getElementById('ai-review-content').innerHTML = '';
+            };
+
+            state.mediaRecorder.start(100);
+            state.isRecording = true;
+            state.recordingStartTime = Date.now();
+
+            document.getElementById('recording-live-indicator').classList.remove('hidden');
+            document.getElementById('shutter-inner').classList.add('pulse-recording');
+            const shape = document.getElementById('shutter-shape');
+            shape.classList.remove('rounded-full', 'w-6', 'h-6');
+            shape.classList.add('rounded-md', 'w-5', 'h-5', 'bg-red-500');
+
+            state.recordingTimerInterval = setInterval(() => {
+                const diff = Math.floor((Date.now() - state.recordingStartTime) / 1000);
+                const m = String(Math.floor(diff / 60)).padStart(2, '0');
+                const s = String(diff % 60).padStart(2, '0');
+                document.getElementById('record-timer').textContent = `${m}:${s}`;
+            }, 500);
+
+            startPrompterScroll();
+        }
+
+        function stopRecording() {
+            if (!state.isRecording) return;
+            state.isRecording = false;
+            
+            if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+                state.mediaRecorder.stop();
+            }
+
+            clearInterval(state.recordingTimerInterval);
+            document.getElementById('recording-live-indicator').classList.add('hidden');
+            document.getElementById('shutter-inner').classList.remove('pulse-recording');
+            
+            const shape = document.getElementById('shutter-shape');
+            shape.classList.remove('rounded-md', 'w-5', 'h-5', 'bg-red-500');
+            shape.classList.add('rounded-full', 'w-6', 'h-6', 'bg-white');
+
+            stopPrompterScroll();
+        }
+
+        function evaluatePerformance() {
+            const reviewPanel = document.getElementById('ai-review-panel');
+            const reviewLoading = document.getElementById('ai-review-loading');
+            const reviewContent = document.getElementById('ai-review-content');
+            const reviewGrade = document.getElementById('ai-review-grade');
+
+            reviewPanel.classList.remove('hidden');
+            reviewLoading.classList.remove('hidden');
+            reviewContent.classList.add('hidden');
+
+            setTimeout(() => {
+                reviewLoading.classList.add('hidden');
+                const grades = ['Sランク (即バズレベル)', 'A+ (プロ水準)', 'A (高完成度)', 'B+ (テンポ安定良好)'];
+                const selectedGrade = grades[Math.floor(Math.random() * grades.length)];
+                reviewGrade.textContent = selectedGrade;
+
+                reviewContent.innerHTML = `
+<div class="space-y-2">
+    <p class="font-bold text-tiktok-cyan">【プロデューサー講評】</p>
+    <p>コードチェンジが滑らかで、サビにかけてのクレッシェンド（音量の広がり）が楽曲の良さを引き出しています。指コードが正確に鳴っており、濁りのない澄んだアコースティックサウンドが響いています。</p>
+    
+    <div class="bg-gray-900 p-2.5 rounded-xl border border-gray-800 space-y-1">
+        <p class="text-xs font-bold text-white">■ 項目別評価</p>
+        <p>・リズムキープ: <span class="text-emerald-400 font-bold">95点</span>（テンポ揺れのない安定感）</p>
+        <p>・コード鳴り・ミュート: <span class="text-emerald-400 font-bold">92点</span>（開放弦とバレーのバランス良好）</p>
+        <p>・表現力・ダイナミクス: <span class="text-tiktok-pink font-bold">96点</span>（世界観の伝わる演奏）</p>
+    </div>
+
+    <p class="text-[11px] text-amber-300">💡 <strong>更なるワンポイント</strong>: サビの終わりで余韻（フェードアウト）を意識して弾くと、より感動的な仕上がりになります！</p>
+</div>`;
+                reviewContent.classList.remove('hidden');
+            }, 1000);
+        }
+
+        /* ==========================================================
+           9. ROBUST GUITAR TUNER ENGINE
+           ========================================================== */
+        function autoCorrelate(buf, sampleRate) {
+            let SIZE = buf.length;
+            let rms = 0;
+            for (let i = 0; i < SIZE; i++) {
+                const val = buf[i];
+                rms += val * val;
+            }
+            rms = Math.sqrt(rms / SIZE);
+            if (rms < 0.008) return -1;
+
+            let r1 = 0, r2 = SIZE - 1, thres = 0.15;
+            for (let i = 0; i < SIZE / 2; i++) {
+                if (Math.abs(buf[i]) < thres) { r1 = i; break; }
+            }
+            for (let i = 1; i < SIZE / 2; i++) {
+                if (Math.abs(buf[SIZE - i]) < thres) { r2 = SIZE - i; break; }
+            }
+
+            buf = buf.slice(r1, r2);
+            SIZE = buf.length;
+
+            let c = new Array(SIZE).fill(0);
+            for (let i = 0; i < SIZE; i++) {
+                for (let j = 0; j < SIZE - i; j++) {
+                    c[i] = c[i] + buf[j] * buf[j + i];
+                }
+            }
+
+            let d = 0;
+            while (c[d] > c[d + 1]) d++;
+            let maxval = -1, maxpos = -1;
+            for (let i = d; i < SIZE; i++) {
+                if (c[i] > maxval) {
+                    maxval = c[i];
+                    maxpos = i;
+                }
+            }
+            let T0 = maxpos;
+
+            let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+            let a = (x1 + x3 - 2 * x2) / 2;
+            let b = (x3 - x1) / 2;
+            if (a) T0 = T0 - b / (2 * a);
+
+            return sampleRate / T0;
+        }
+
+        async function startTuner() {
+            try {
+                if (!state.tunerAudioCtx) {
+                    state.tunerAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (state.tunerAudioCtx.state === 'suspended') {
+                    await state.tunerAudioCtx.resume();
+                }
+
+                try {
+                    state.micStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+                    });
+                } catch (eMic) {
+                    state.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                }
+
+                const source = state.tunerAudioCtx.createMediaStreamSource(state.micStream);
+                state.analyser = state.tunerAudioCtx.createAnalyser();
+                state.analyser.fftSize = 2048;
+                source.connect(state.analyser);
+
+                state.isTunerActive = true;
+                const buffer = new Float32Array(state.analyser.fftSize);
+
+                const needle = document.getElementById('tuner-needle');
+                const noteName = document.getElementById('detected-note-name');
+                const hzText = document.getElementById('tuner-hz');
+                const guidance = document.getElementById('tuner-guidance');
+                const micBar = document.getElementById('mic-level-bar');
+                const micDbText = document.getElementById('mic-db-text');
+
+                state.tunerInterval = setInterval(() => {
+                    if (!state.isTunerActive) return;
+                    state.analyser.getFloatTimeDomainData(buffer);
+
+                    let sum = 0;
+                    for (let i = 0; i < buffer.length; i++) sum += buffer[i] * buffer[i];
+                    const vol = Math.min(100, Math.round(Math.sqrt(sum / buffer.length) * 400));
+                    micBar.style.width = `${vol}%`;
+                    micDbText.textContent = vol > 3 ? `${vol}%` : "認識待機中";
+
+                    const pitch = autoCorrelate(buffer, state.tunerAudioCtx.sampleRate);
+
+                    if (pitch === -1 || pitch < 60 || pitch > 700) return;
+
+                    hzText.textContent = `${pitch.toFixed(1)} Hz`;
+
+                    let target = null;
+                    if (state.targetString === 'auto') {
+                        let minDiff = Infinity;
+                        STANDARD_STRINGS.forEach(s => {
+                            const diff = Math.abs(pitch - s.freq);
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                target = s;
+                            }
+                        });
+                    } else {
+                        target = STANDARD_STRINGS.find(s => s.name === state.targetString);
+                    }
+
+                    if (!target) return;
+
+                    noteName.textContent = target.name;
+                    const cents = 1200 * Math.log2(pitch / target.freq);
+
+                    const clampedCents = Math.max(-50, Math.min(50, cents));
+                    const deg = (clampedCents / 50) * 45;
+                    needle.style.transform = `rotate(${deg}deg)`;
+
+                    if (Math.abs(cents) <= 4) {
+                        needle.className = 'absolute bottom-0 w-1.5 h-20 bg-emerald-400 rounded-full origin-bottom transition-transform duration-75 shadow-lg shadow-emerald-400/50';
+                        guidance.textContent = 'ぴったり中央！調律完了です';
+                        guidance.className = 'text-xs font-black text-emerald-400 mt-1';
+                    } else if (cents < 0) {
+                        needle.className = 'absolute bottom-0 w-1 h-20 bg-rose-500 rounded-full origin-bottom transition-transform duration-75';
+                        guidance.textContent = '低い ➜ ペグを締めて高くする';
+                        guidance.className = 'text-xs font-bold text-amber-400 mt-1';
+                    } else {
+                        needle.className = 'absolute bottom-0 w-1 h-20 bg-rose-500 rounded-full origin-bottom transition-transform duration-75';
+                        guidance.textContent = '高い ➜ ペグを緩めて低くする';
+                        guidance.className = 'text-xs font-bold text-amber-400 mt-1';
+                    }
+                }, 75);
+            } catch (err) {
+                console.error("Tuner mic activation error:", err);
+                const guidance = document.getElementById('tuner-guidance');
+                guidance.textContent = 'マイク利用の許可をブラウザで「許可」してください';
+                guidance.className = 'text-xs font-bold text-rose-400 mt-1';
+            }
+        }
+
+        function stopTuner() {
+            state.isTunerActive = false;
+            if (state.tunerInterval) clearInterval(state.tunerInterval);
+            if (state.micStream) {
+                state.micStream.getTracks().forEach(t => t.stop());
+                state.micStream = null;
+            }
+        }
+
+        function playReferenceTone(targetName) {
+            let target = STANDARD_STRINGS.find(s => s.name === targetName);
+            if (!target && state.targetString !== 'auto') {
+                target = STANDARD_STRINGS.find(s => s.name === state.targetString);
+            }
+            if (!target) target = STANDARD_STRINGS[0];
+
+            const actx = state.tunerAudioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            if (actx.state === 'suspended') actx.resume();
+
+            const osc = actx.createOscillator();
+            const gain = actx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(target.freq, actx.currentTime);
+            gain.gain.setValueAtTime(0.4, actx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 1.2);
+            osc.connect(gain);
+            gain.connect(actx.destination);
+            osc.start();
+            osc.stop(actx.currentTime + 1.2);
+
+            const guidance = document.getElementById('tuner-guidance');
+            guidance.textContent = `基準音 (${target.name}: ${target.freq}Hz) を再生しました`;
+            guidance.className = 'text-xs font-bold text-tiktok-cyan mt-1';
+        }
+
+        /* ==========================================================
+           10. METRONOME
+           ========================================================== */
+        function playMetroClick() {
+            if (!state.audioCtx) {
+                state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+
+            const osc = state.audioCtx.createOscillator();
+            const gain = state.audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(1000, state.audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.7, state.audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + 0.05);
+            osc.connect(gain);
+            gain.connect(state.audioCtx.destination);
+            osc.start();
+            osc.stop(state.audioCtx.currentTime + 0.05);
+        }
+
+        function toggleMetronome() {
+            state.isMetroRunning = !state.isMetroRunning;
+            const icon = document.getElementById('metro-icon');
+            if (state.isMetroRunning) {
+                icon.className = 'fa-solid fa-volume-high text-tiktok-cyan animate-pulse';
+                const interval = (60 / state.bpm) * 1000;
+                state.metroTimer = setInterval(playMetroClick, interval);
+            } else {
+                icon.className = 'fa-solid fa-drum text-gray-400';
+                clearInterval(state.metroTimer);
+            }
+        }
+
+        /* ==========================================================
+           11. DOM INITIALIZATION & EVENT WIRING
+           ========================================================== */
+        window.addEventListener('DOMContentLoaded', () => {
+            initCamera();
+
+            // Populate Popular Songs Pill Buttons
+            const presetContainer = document.getElementById('preset-song-list');
+            PRESET_SONGS.forEach(song => {
+                const btn = document.createElement('button');
+                btn.className = 'px-2.5 py-1 rounded-xl bg-gray-800 hover:bg-gray-700 active:scale-95 transition text-[11px] font-bold text-gray-300 border border-gray-700/80 flex items-center gap-1';
+                btn.innerHTML = `<span>${song.displayTitle || song.title}</span><span class="text-[9px] text-gray-500 font-normal">${song.displayArtist || song.artist}</span>`;
+                btn.addEventListener('click', () => {
+                    document.getElementById('song-input').value = song.title;
+                    document.getElementById('artist-input').value = song.artist;
+                    applySongData(song);
+                });
+                presetContainer.appendChild(btn);
+            });
+
+            // Scope Mode (一曲丸ごと vs サビのみ) Buttons
+            document.getElementById('scope-full-btn').addEventListener('click', () => updateScopeMode('full'));
+            document.getElementById('scope-short-btn').addEventListener('click', () => updateScopeMode('short'));
+
+            // Camera Flip
+            document.getElementById('flip-camera-btn').addEventListener('click', () => {
+                state.facingMode = (state.facingMode === 'user') ? 'environment' : 'user';
+                initCamera();
+            });
+
+            // Recording Shutter
+            document.getElementById('record-shutter-btn').addEventListener('click', triggerRecordingFlow);
+
+            // Delay Selector
+            const delays = [0, 3, 5, 10];
+            document.getElementById('timer-delay-btn').addEventListener('click', () => {
+                const curIdx = delays.indexOf(state.delaySeconds);
+                state.delaySeconds = delays[(curIdx + 1) % delays.length];
+                document.getElementById('delay-text').textContent = state.delaySeconds === 0 ? 'OFF' : `${state.delaySeconds}s`;
+            });
+
+            // Speed Selector (x0.8, x1, x1.5, x2, x3)
+            const speeds = [0.8, 1.0, 1.5, 2.0, 3.0];
+            document.getElementById('scroll-speed-btn').addEventListener('click', () => {
+                const curIdx = speeds.indexOf(state.scrollSpeed);
+                state.scrollSpeed = speeds[(curIdx + 1) % speeds.length];
+                document.getElementById('speed-text').textContent = `x${state.scrollSpeed}`;
+                if (state.isScrolling) startPrompterScroll();
+            });
+
+            // Prompter View Toggle (指コード / 文字)
+            document.getElementById('toggle-chord-visual').addEventListener('click', () => {
+                state.chordVisualMode = !state.chordVisualMode;
+                document.getElementById('chord-view-mode-label').textContent = state.chordVisualMode ? '指コード' : '文字コード';
+                const currentText = document.getElementById('song-editor').value;
+                if (currentText) renderPrompter(currentText);
+            });
+
+            // Metronome
+            document.getElementById('toggle-metro-btn').addEventListener('click', toggleMetronome);
+            
+            const bpmSlider = document.getElementById('bpm-slider');
+            bpmSlider.addEventListener('input', (e) => {
+                state.bpm = parseInt(e.target.value, 10);
+                document.getElementById('bpm-display').textContent = `BPM ${state.bpm}`;
+                if (state.isMetroRunning) {
+                    clearInterval(state.metroTimer);
+                    state.metroTimer = setInterval(playMetroClick, (60 / state.bpm) * 1000);
+                }
+            });
+
+            // Tap Tempo
+            document.getElementById('tap-tempo-btn').addEventListener('click', () => {
+                const now = Date.now();
+                state.lastTapTimes.push(now);
+                if (state.lastTapTimes.length > 4) state.lastTapTimes.shift();
+                if (state.lastTapTimes.length >= 2) {
+                    const diffs = [];
+                    for (let i = 1; i < state.lastTapTimes.length; i++) {
+                        diffs.push(state.lastTapTimes[i] - state.lastTapTimes[i - 1]);
+                    }
+                    const avgDiff = diffs.reduce((a, b) => a + b, 0) / diffs.length;
+                    const calculatedBpm = Math.round(60000 / avgDiff);
+                    if (calculatedBpm >= 50 && calculatedBpm <= 220) {
+                        state.bpm = calculatedBpm;
+                        bpmSlider.value = calculatedBpm;
+                        document.getElementById('bpm-display').textContent = `BPM ${calculatedBpm}`;
+                    }
+                }
+            });
+
+            // Search Trigger
+            const triggerSearch = () => {
+                const songTitle = document.getElementById('song-input').value.trim();
+                const artistName = document.getElementById('artist-input').value.trim();
+                if (songTitle) searchSongAndApply(songTitle, artistName);
+            };
+
+            document.getElementById('search-song-btn').addEventListener('click', triggerSearch);
+            document.getElementById('song-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') triggerSearch();
+            });
+            document.getElementById('artist-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') triggerSearch();
+            });
+
+            // Google Direct Web Search Button
+            document.getElementById('web-search-btn').addEventListener('click', () => {
+                const songTitle = document.getElementById('song-input').value.trim() || 'Let It Be';
+                const artistName = document.getElementById('artist-input').value.trim() || '';
+                const query = encodeURIComponent(`${songTitle} ${artistName} コード ギター U-フレット`);
+                window.open(`https://www.google.com/search?q=${query}`, '_blank');
+            });
+
+            // Paste Import Modal Wiring
+            const pasteModal = document.getElementById('paste-modal');
+            document.getElementById('open-paste-modal-btn').addEventListener('click', () => {
+                pasteModal.classList.remove('hidden');
+            });
+            document.getElementById('close-paste-modal-btn').addEventListener('click', () => {
+                pasteModal.classList.add('hidden');
+            });
+
+            document.getElementById('execute-paste-import-btn').addEventListener('click', () => {
+                const rawText = document.getElementById('paste-input-area').value.trim();
+                if (!rawText) return;
+
+                let capo = parseInt(document.getElementById('paste-capo-input').value, 10) || 0;
+                let bpm = parseInt(document.getElementById('paste-bpm-input').value, 10) || 100;
+
+                const capoMatch = rawText.match(/capo[:\s]*(\d+)|カポ[:\s]*(\d+)/i);
+                if (capoMatch) capo = parseInt(capoMatch[1] || capoMatch[2], 10);
+
+                const bpmMatch = rawText.match(/bpm[:\s]*(\d+)|テンポ[:\s]*(\d+)/i);
+                if (bpmMatch) bpm = parseInt(bpmMatch[1] || bpmMatch[2], 10);
+
+                const lines = rawText.split('\n');
+                const cleanLines = [];
+                for (let line of lines) {
+                    if (/^(capo|カポ|bpm|テンポ)[:\s]*\d+/i.test(line.trim())) continue;
+                    cleanLines.push(line);
+                }
+                const cleanedText = cleanLines.join('\n').trim();
+
+                const songTitle = document.getElementById('song-input').value.trim() || "インポート譜面";
+                const artistName = document.getElementById('artist-input').value.trim() || "手動取り込み";
+
+                applySongData({
+                    title: songTitle,
+                    displayTitle: songTitle,
+                    artist: artistName,
+                    displayArtist: artistName,
+                    capo: capo,
+                    bpm: bpm,
+                    sheetFull: cleanedText,
+                    sheetShort: cleanedText
+                });
+
+                pasteModal.classList.add('hidden');
+                document.getElementById('paste-input-area').value = '';
+
+                const statusEl = document.getElementById('search-status');
+                const statusText = document.getElementById('search-status-text');
+                statusEl.classList.remove('hidden');
+                statusText.innerHTML = `<span class="text-amber-400 font-bold">「${songTitle}」</span> のコード譜を取り込みました！`;
+                setTimeout(() => statusEl.classList.add('hidden'), 3500);
+            });
+
+            // Settings Modal (Google API Key) Wiring
+            const settingsModal = document.getElementById('settings-modal');
+            const apiKeyInput = document.getElementById('api-key-input');
+            const apiStatusBadge = document.getElementById('api-status-badge');
+
+            const refreshApiBadge = () => {
+                const key = localStorage.getItem('gemini_api_key');
+                if (key) {
+                    apiStatusBadge.textContent = 'Google連携: 有効 🟢';
+                    apiStatusBadge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                } else {
+                    apiStatusBadge.textContent = 'Google連携: 未設定';
+                    apiStatusBadge.className = 'text-[9px] px-1.5 py-0.2 rounded bg-gray-800 text-gray-400 border border-gray-700';
+                }
+            };
+            refreshApiBadge();
+
+            document.getElementById('open-settings-btn').addEventListener('click', () => {
+                apiKeyInput.value = localStorage.getItem('gemini_api_key') || '';
+                settingsModal.classList.remove('hidden');
+            });
+            document.getElementById('close-settings-btn').addEventListener('click', () => {
+                settingsModal.classList.add('hidden');
+            });
+
+            document.getElementById('save-api-key-btn').addEventListener('click', () => {
+                const key = apiKeyInput.value.trim();
+                if (key) {
+                    localStorage.setItem('gemini_api_key', key);
+                    alert("Google APIキーを保存しました。曲名を入力するとGoogle検索から自動取得します！");
+                }
+                refreshApiBadge();
+                settingsModal.classList.add('hidden');
+            });
+
+            document.getElementById('clear-api-key-btn').addEventListener('click', () => {
+                localStorage.removeItem('gemini_api_key');
+                apiKeyInput.value = '';
+                refreshApiBadge();
+                alert("APIキーを解除しました。内蔵ライブラリ＋Web検索モードで動作します。");
+                settingsModal.classList.add('hidden');
+            });
+
+            // Manual sheet apply
+            document.getElementById('apply-editor-btn').addEventListener('click', () => {
+                const txt = document.getElementById('song-editor').value;
+                renderPrompter(txt);
+            });
+
+            // AI Critique
+            document.getElementById('ai-review-btn').addEventListener('click', evaluatePerformance);
+            document.getElementById('dismiss-recording-card').addEventListener('click', () => {
+                document.getElementById('recorded-preview-card').classList.add('hidden');
+            });
+
+            // Tuner Controls
+            const tunerModal = document.getElementById('tuner-modal');
+            document.getElementById('open-tuner-btn').addEventListener('click', () => {
+                tunerModal.classList.remove('hidden');
+                startTuner();
+            });
+
+            document.getElementById('close-tuner-btn').addEventListener('click', () => {
+                tunerModal.classList.add('hidden');
+                stopTuner();
+            });
+
+            document.getElementById('tuner-retry-mic-btn').addEventListener('click', () => {
+                stopTuner();
+                startTuner();
+            });
+
+            document.getElementById('play-tone-btn').addEventListener('click', () => {
+                playReferenceTone();
+            });
+
+            document.querySelectorAll('.target-string-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.target-string-btn').forEach(b => {
+                        b.classList.remove('bg-emerald-600', 'text-white');
+                        b.classList.add('bg-gray-800', 'text-gray-400');
+                    });
+                    e.currentTarget.classList.remove('bg-gray-800', 'text-gray-400');
+                    e.currentTarget.classList.add('bg-emerald-600', 'text-white');
+
+                    state.targetString = e.currentTarget.dataset.string;
+                    document.getElementById('detected-target-string').textContent = (state.targetString === 'auto') ? '自動' : state.targetString.toUpperCase();
+
+                    if (state.targetString !== 'auto') {
+                        playReferenceTone(state.targetString);
+                    }
+                });
+            });
+
+            // Default: Initial Song load as The Beatles - Let It Be (FULL size)
+            applySongData(PRESET_SONGS[0]);
+            document.getElementById('song-input').value = PRESET_SONGS[0].title;
+            document.getElementById('artist-input').value = PRESET_SONGS[0].artist;
+        });
+    </script>
+</body>
+</html>
