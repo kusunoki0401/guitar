@@ -192,6 +192,10 @@
                 </div>
 
                 <div class="flex items-center gap-1.5">
+                    <!-- Play / Pause Prompter Scroll Button -->
+                    <button id="toggle-play-scroll-btn" class="px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md hover:bg-black/90 border border-emerald-500/50 text-emerald-400 text-[11px] font-bold active:scale-95 transition flex items-center gap-1" title="歌詞・コードの自動スクロール 再生/一時停止">
+                        <i id="play-scroll-icon" class="fa-solid fa-play"></i> <span id="play-scroll-label">流す</span>
+                    </button>
                     <!-- Prompter Mode Toggle (指コード / テキスト) -->
                     <button id="toggle-chord-visual" class="px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md hover:bg-black/90 border border-gray-700 text-tiktok-cyan text-[11px] font-bold active:scale-95 transition flex items-center gap-1">
                         <i class="fa-solid fa-table-cells"></i> <span id="chord-view-mode-label">指コード</span>
@@ -1674,17 +1678,50 @@ BPM: [数字]
         /* ==========================================================
            8. PROMPTER SCROLL & RECORDING ENGINE
            ========================================================== */
+        function updatePlayScrollBtnUI() {
+            const btn = document.getElementById('toggle-play-scroll-btn');
+            const icon = document.getElementById('play-scroll-icon');
+            const label = document.getElementById('play-scroll-label');
+            if (!btn || !icon || !label) return;
+
+            if (state.isScrolling) {
+                btn.className = 'px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md hover:bg-black/90 border border-amber-500/50 text-amber-400 text-[11px] font-bold active:scale-95 transition flex items-center gap-1';
+                icon.className = 'fa-solid fa-pause';
+                label.textContent = '停止';
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-xl bg-black/70 backdrop-blur-md hover:bg-black/90 border border-emerald-500/50 text-emerald-400 text-[11px] font-bold active:scale-95 transition flex items-center gap-1';
+                icon.className = 'fa-solid fa-play';
+                label.textContent = '流す';
+            }
+        }
+
+        function togglePrompterScroll() {
+            if (state.isScrolling) {
+                stopPrompterScroll();
+            } else {
+                startPrompterScroll();
+            }
+        }
+
         function startPrompterScroll() {
             const container = document.getElementById('prompter-scroll-container');
             if (state.scrollInterval) clearInterval(state.scrollInterval);
             
+            // If scrolled to bottom, reset to top so it flows again
+            if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10) {
+                container.scrollTop = 0;
+            }
+
             const pxPerTick = state.scrollSpeed * 0.7;
             state.isScrolling = true;
+            updatePlayScrollBtnUI();
 
             state.scrollInterval = setInterval(() => {
                 if (container.scrollTop + container.clientHeight >= container.scrollHeight) {
                     clearInterval(state.scrollInterval);
+                    state.scrollInterval = null;
                     state.isScrolling = false;
+                    updatePlayScrollBtnUI();
                 } else {
                     container.scrollTop += pxPerTick;
                 }
@@ -1697,6 +1734,7 @@ BPM: [数字]
                 state.scrollInterval = null;
             }
             state.isScrolling = false;
+            updatePlayScrollBtnUI();
         }
 
         async function triggerRecordingFlow() {
@@ -2098,6 +2136,9 @@ BPM: [数字]
                 document.getElementById('speed-text').textContent = `x${state.scrollSpeed}`;
                 if (state.isScrolling) startPrompterScroll();
             });
+
+            // Prompter Play / Pause Toggle Button
+            document.getElementById('toggle-play-scroll-btn').addEventListener('click', togglePrompterScroll);
 
             // Prompter View Toggle (指コード / 文字)
             document.getElementById('toggle-chord-visual').addEventListener('click', () => {
