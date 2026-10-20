@@ -2352,10 +2352,19 @@ BPM: [数字]
                 });
             });
 
-            // Default: Initial Song load as The Beatles - Let It Be (FULL size)
-            applySongData(PRESET_SONGS[0]);
-            document.getElementById('song-input').value = PRESET_SONGS[0].title;
-            document.getElementById('artist-input').value = PRESET_SONGS[0].artist;
+            // Default: Initial state with empty song/artist inputs and welcoming prompt
+            document.getElementById('song-input').value = '';
+            document.getElementById('artist-input').value = '';
+            document.getElementById('song-editor').value = '';
+            document.getElementById('detected-capo-badge').textContent = 'Capo: -';
+            document.getElementById('active-capo-tag').textContent = 'Capo: 0';
+            
+            const initialGuide = `[スタートガイド]
+C       G       Am      F
+曲名や歌手名を入力して検索するか
+C       G       F       C
+下の定番ライブラリから曲を選んでください`;
+            renderPrompter(initialGuide);
         });
     </script>
 </body>
