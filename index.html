@@ -2128,8 +2128,8 @@ BPM: [数字]
                 document.getElementById('delay-text').textContent = state.delaySeconds === 0 ? 'OFF' : `${state.delaySeconds}s`;
             });
 
-            // Speed Selector (x0.8, x1, x1.5, x2, x3)
-            const speeds = [0.8, 1.0, 1.5, 2.0, 3.0];
+            // Speed Selector (x0.8, x1, x1.5, x2, x3, x4, x5)
+            const speeds = [0.8, 1.0, 1.5, 2.0, 3.0, 4.0, 5.0];
             document.getElementById('scroll-speed-btn').addEventListener('click', () => {
                 const curIdx = speeds.indexOf(state.scrollSpeed);
                 state.scrollSpeed = speeds[(curIdx + 1) % speeds.length];
