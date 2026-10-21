@@ -94,9 +94,15 @@
                 <span class="flex items-center gap-1.5 text-tiktok-cyan">
                     <i class="fa-solid fa-globe"></i> 楽曲検索 & 指コード生成
                 </span>
-                <span id="detected-capo-badge" class="px-2 py-0.5 rounded-full bg-tiktok-pink/20 text-tiktok-pink text-[11px] font-black border border-tiktok-pink/30">
-                    Capo: 0 (原曲キー)
-                </span>
+                <!-- Interactive Capo Stepper & Badge -->
+                <div class="flex items-center gap-1.5 bg-gray-950 px-2 py-0.5 rounded-full border border-gray-800">
+                    <span class="text-[10px] text-gray-400 font-bold">カポ:</span>
+                    <button id="capo-down-btn" class="w-5 h-5 rounded-full bg-gray-800 hover:bg-gray-700 text-tiktok-cyan text-xs font-black flex items-center justify-center active:scale-90 transition" title="カポを1下げる (半音上げる)">-</button>
+                    <span id="detected-capo-badge" class="px-1.5 text-tiktok-pink text-[11px] font-black min-w-[48px] text-center cursor-pointer" title="クリックでカポ手動入力">
+                        Capo: 0
+                    </span>
+                    <button id="capo-up-btn" class="w-5 h-5 rounded-full bg-gray-800 hover:bg-gray-700 text-tiktok-pink text-xs font-black flex items-center justify-center active:scale-90 transition" title="カポを1上げる (半音下げる)">+</button>
+                </div>
             </div>
 
             <!-- Two-Field Input (Song Name + Artist Name) -->
@@ -208,8 +214,8 @@
             </div>
 
             <!-- Teleprompter Flowing Lyrics & Chords Overlay -->
-            <div class="relative z-20 flex-1 px-2 overflow-hidden flex flex-col justify-center prompter-mask pointer-events-auto">
-                <div id="prompter-scroll-container" class="h-full overflow-y-auto space-y-6 py-28 text-center scroll-smooth px-1">
+            <div class="relative z-20 flex-1 px-2 overflow-hidden flex flex-col prompter-mask pointer-events-auto">
+                <div id="prompter-scroll-container" class="h-full overflow-y-auto space-y-6 py-28 text-center px-1">
                     <!-- Populated dynamically with lyrics and clear SVG diagrams on top -->
                 </div>
             </div>
@@ -596,7 +602,18 @@
             'Bm/A':  { frets: [-1, 0, 4, 4, 3, 2], base: 2, barre: 2 },
             'BmonA': { frets: [-1, 0, 4, 4, 3, 2], base: 2, barre: 2 },
             'Dm7/G': { frets: [3, -1, 0, 2, 1, 1], base: 1 },
-            'Dm7onG':{ frets: [3, -1, 0, 2, 1, 1], base: 1 }
+            'Dm7onG':{ frets: [3, -1, 0, 2, 1, 1], base: 1 },
+
+            // Enharmonic & Transpose Support (Sharp/Flat duplicates)
+            'D#':    { frets: [-1, 6, 8, 8, 8, 6], base: 6, barre: 6 },
+            'D#m':   { frets: [-1, 6, 8, 8, 7, 6], base: 6, barre: 6 },
+            'D#7':   { frets: [-1, 6, 8, 6, 8, 6], base: 6, barre: 6 },
+            'A#':    { frets: [-1, 1, 3, 3, 3, 1], base: 1, barre: 1 },
+            'A#m':   { frets: [-1, 1, 3, 3, 2, 1], base: 1, barre: 1 },
+            'A#7':   { frets: [-1, 1, 3, 1, 3, 1], base: 1, barre: 1 },
+            'Gb':    { frets: [2, 4, 4, 3, 2, 2], base: 2, barre: 2 },
+            'Gbm':   { frets: [2, 4, 4, 2, 2, 2], base: 2, barre: 2 },
+            'F#onA#':{ frets: [-1, 1, 4, 3, 2, 2], base: 1 }
         };
 
         const STANDARD_STRINGS = [
@@ -1393,8 +1410,85 @@ G       Em      C       D7      G`
         }
 
         /* ==========================================================
-           6. FUZZY SEARCH & GOOGLE AI INTEGRATION
+           6. FUZZY SEARCH, CAPO TRANSPOSER & GOOGLE AI
            ========================================================== */
+        const NOTES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        const NOTES_FLAT  = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+        function noteToPitch(note) {
+            let idx = NOTES_SHARP.indexOf(note);
+            if (idx !== -1) return idx;
+            return NOTES_FLAT.indexOf(note);
+        }
+
+        function pitchToNote(pitch, preferFlat = false) {
+            const mod = ((pitch % 12) + 12) % 12;
+            return preferFlat ? NOTES_FLAT[mod] : NOTES_SHARP[mod];
+        }
+
+        function transposeChord(chordStr, semitones) {
+            if (!chordStr || semitones === 0) return chordStr;
+            const slashMatch = chordStr.match(/^(.+?)(?:\/|on)(.+)$/i);
+            if (slashMatch) {
+                const isJapaneseOn = chordStr.toLowerCase().includes('on');
+                const separator = isJapaneseOn ? 'on' : '/';
+                return transposeChord(slashMatch[1], semitones) + separator + transposeChord(slashMatch[2], semitones);
+            }
+            const m = chordStr.match(/^([A-G][#b♭♯]?)(.*)$/);
+            if (!m) return chordStr;
+            let root = m[1].replace('♯', '#').replace('♭', 'b');
+            const rest = m[2];
+            const pitch = noteToPitch(root);
+            if (pitch === -1) return chordStr;
+            const preferFlat = root.includes('b') || root === 'F';
+            const newRoot = pitchToNote(pitch + semitones, preferFlat);
+            return newRoot + rest;
+        }
+
+        function transposeSheetText(sheetText, semitones) {
+            if (!sheetText || semitones === 0) return sheetText;
+            const lines = sheetText.split('\n');
+            return lines.map(line => {
+                const trimmed = line.trim();
+                if (!trimmed || (trimmed.startsWith('[') && trimmed.endsWith(']'))) return line;
+                if (isChordLine(line)) {
+                    return line.replace(/([A-Ga-g][#b♭♯]?(?:m|min|maj|M|△|dim|aug|sus|add|[0-9]|-|\+|b|#)*(?:(?:\/|on)[A-Ga-g][#b♭♯]?)?)/gi, (m) => {
+                        return transposeChord(m, semitones);
+                    });
+                }
+                return line;
+            }).join('\n');
+        }
+
+        function changeCapoAndTranspose(newCapo) {
+            newCapo = Math.max(0, Math.min(12, parseInt(newCapo, 10) || 0));
+            const currentCapo = (state.currentSongObj && typeof state.currentSongObj.capo === 'number') ? state.currentSongObj.capo : 0;
+            const semitoneDiff = currentCapo - newCapo; // Moving Capo UP by 1 shifts open chord down by 1 semitone to keep same sound
+
+            if (state.currentSongObj) {
+                state.currentSongObj.capo = newCapo;
+                if (semitoneDiff !== 0) {
+                    if (state.currentSongObj.sheetFull) {
+                        state.currentSongObj.sheetFull = transposeSheetText(state.currentSongObj.sheetFull, semitoneDiff);
+                    }
+                    if (state.currentSongObj.sheetShort) {
+                        state.currentSongObj.sheetShort = transposeSheetText(state.currentSongObj.sheetShort, semitoneDiff);
+                    }
+                }
+            }
+
+            document.getElementById('detected-capo-badge').textContent = `Capo: ${newCapo}`;
+            document.getElementById('active-capo-tag').textContent = `Capo: ${newCapo}`;
+
+            const editorEl = document.getElementById('song-editor');
+            const currentEditorText = editorEl.value;
+            if (currentEditorText && semitoneDiff !== 0) {
+                const transposedEditorText = transposeSheetText(currentEditorText, semitoneDiff);
+                editorEl.value = transposedEditorText;
+                renderPrompter(transposedEditorText);
+            }
+        }
+
         function normalizeSearchText(str) {
             if (!str) return '';
             return str
@@ -1705,32 +1799,48 @@ BPM: [数字]
 
         function startPrompterScroll() {
             const container = document.getElementById('prompter-scroll-container');
-            if (state.scrollInterval) clearInterval(state.scrollInterval);
+            if (state.scrollInterval) {
+                cancelAnimationFrame(state.scrollInterval);
+                state.scrollInterval = null;
+            }
             
             // If scrolled to bottom, reset to top so it flows again
             if (container.scrollTop + container.clientHeight >= container.scrollHeight - 10) {
                 container.scrollTop = 0;
             }
 
-            const pxPerTick = state.scrollSpeed * 0.7;
             state.isScrolling = true;
             updatePlayScrollBtnUI();
 
-            state.scrollInterval = setInterval(() => {
-                if (container.scrollTop + container.clientHeight >= container.scrollHeight) {
-                    clearInterval(state.scrollInterval);
-                    state.scrollInterval = null;
-                    state.isScrolling = false;
-                    updatePlayScrollBtnUI();
+            let preciseScrollTop = container.scrollTop;
+            let lastTimestamp = performance.now();
+
+            function step(currentTimestamp) {
+                if (!state.isScrolling) return;
+
+                const deltaMs = Math.min(50, currentTimestamp - lastTimestamp);
+                lastTimestamp = currentTimestamp;
+
+                // Base speed: 20 pixels per second at x1.0
+                const pxPerSecond = 20 * state.scrollSpeed;
+                const pxThisStep = (pxPerSecond * deltaMs) / 1000;
+
+                preciseScrollTop += pxThisStep;
+                container.scrollTop = preciseScrollTop;
+
+                if (container.scrollTop + container.clientHeight >= container.scrollHeight - 2) {
+                    stopPrompterScroll();
                 } else {
-                    container.scrollTop += pxPerTick;
+                    state.scrollInterval = requestAnimationFrame(step);
                 }
-            }, 30);
+            }
+
+            state.scrollInterval = requestAnimationFrame(step);
         }
 
         function stopPrompterScroll() {
             if (state.scrollInterval) {
-                clearInterval(state.scrollInterval);
+                cancelAnimationFrame(state.scrollInterval);
                 state.scrollInterval = null;
             }
             state.isScrolling = false;
@@ -2105,6 +2215,23 @@ BPM: [数字]
                     applySongData(song);
                 });
                 presetContainer.appendChild(btn);
+            });
+
+            // Interactive Capo Stepper Events
+            document.getElementById('capo-up-btn').addEventListener('click', () => {
+                const cur = (state.currentSongObj && typeof state.currentSongObj.capo === 'number') ? state.currentSongObj.capo : 0;
+                if (cur < 12) changeCapoAndTranspose(cur + 1);
+            });
+            document.getElementById('capo-down-btn').addEventListener('click', () => {
+                const cur = (state.currentSongObj && typeof state.currentSongObj.capo === 'number') ? state.currentSongObj.capo : 0;
+                if (cur > 0) changeCapoAndTranspose(cur - 1);
+            });
+            document.getElementById('detected-capo-badge').addEventListener('click', () => {
+                const cur = (state.currentSongObj && typeof state.currentSongObj.capo === 'number') ? state.currentSongObj.capo : 0;
+                const input = prompt("変更したいカポ位置を入力してください (0〜12):", cur);
+                if (input !== null && !isNaN(parseInt(input, 10))) {
+                    changeCapoAndTranspose(parseInt(input, 10));
+                }
             });
 
             // Scope Mode (一曲丸ごと vs サビのみ) Buttons
